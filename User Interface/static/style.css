@@ -1,0 +1,1033 @@
+/* ==========================================================================
+   BEYOND HORIZON -1 TACTICAL NIGHT-VISION DASHBOARD STYLESHEET
+   Strict Field Adaptation Dark Theme: Deep Charcoal/Black, Crimson Accent
+   ========================================================================== */
+
+:root {
+    --bg-dark-base: #050505;
+    --bg-panel: #0d0d0d;
+    --bg-card: #141414;
+    --bg-input: #1a1a1a;
+    
+    --border-crimson: #dc2626;
+    --border-dark-red: #7f1d1d;
+    --border-subtle: #300a0a;
+
+    --text-primary-red: #ff4d4d;
+    --text-bright-red: #ff1a1a;
+    --text-muted-red: #b91c1c;
+    --text-dark-red: #7f1d1d;
+
+    --neon-red-glow: 0 0 12px rgba(239, 68, 68, 0.6);
+    --neon-red-border: 0 0 8px rgba(220, 38, 38, 0.4);
+
+    --font-heading: 'Orbitron', -apple-system, sans-serif;
+    --font-mono: 'Share Tech Mono', monospace;
+
+    --progress-track: #1a0505;
+    --progress-fill: var(--border-crimson);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body.tactical-theme {
+    background-color: var(--bg-dark-base);
+    color: var(--text-primary-red);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    line-height: 1.4;
+}
+
+/* --------------------------------------------------------------------------
+   Top App Header
+   -------------------------------------------------------------------------- */
+.app-header {
+    background-color: var(--bg-panel);
+    border-bottom: 2px solid var(--border-crimson);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+}
+
+.header-branding {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon {
+    font-size: 2rem;
+    color: var(--text-bright-red);
+    text-shadow: var(--neon-red-glow);
+    animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+}
+
+.title-group h1 {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--text-bright-red);
+}
+
+.title-group .sub-title {
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    color: var(--text-muted-red);
+}
+
+.header-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.status-badge {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    padding: 6px 12px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.connected {
+    background-color: var(--text-bright-red);
+    box-shadow: var(--neon-red-glow);
+}
+
+.status-dot.disconnected {
+    background-color: #330808;
+    border: 1px solid var(--border-dark-red);
+}
+
+.sys-clock {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: var(--text-bright-red);
+    background: rgba(220, 38, 38, 0.1);
+    padding: 6px 12px;
+    border: 1px solid var(--border-crimson);
+    border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   Dashboard Grid Layout (Responsive Mobile Stack)
+   -------------------------------------------------------------------------- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 20px;
+    padding: 24px;
+    flex: 1;
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.span-full {
+    grid-column: 1 / -1;
+}
+
+/* Panel Card Container */
+.panel-card {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-dark-red);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.3s ease;
+}
+
+.panel-card:hover {
+    border-color: var(--border-crimson);
+}
+
+.panel-header {
+    background-color: rgba(220, 38, 38, 0.12);
+    border-bottom: 1px solid var(--border-crimson);
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+}
+
+.panel-header .title-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.panel-header h2 {
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    color: var(--text-bright-red);
+}
+
+.panel-icon {
+    font-size: 1.1rem;
+    color: var(--text-bright-red);
+}
+
+.panel-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Interactive Pannable Sky Map & Stellarium iFrame
+   -------------------------------------------------------------------------- */
+.map-view-switcher {
+    display: flex;
+    gap: 6px;
+}
+
+.view-switch-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    color: var(--text-muted-red);
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.view-switch-btn.active, .view-switch-btn:hover {
+    background: var(--border-dark-red);
+    border-color: var(--border-crimson);
+    color: var(--text-bright-red);
+    font-weight: bold;
+}
+
+.skymap-container-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+}
+
+.skymap-canvas-wrapper {
+    position: relative;
+    background: #020202;
+    border: 1px solid var(--border-crimson);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 520px;
+}
+
+#skymap-canvas {
+    width: 100%;
+    height: 100%;
+    min-height: 520px;
+    background: #000;
+    cursor: grab;
+}
+
+#skymap-canvas.hidden {
+    display: none;
+}
+
+#skymap-canvas:active {
+    cursor: grabbing;
+}
+
+#stellarium-iframe {
+    width: 100%;
+    height: 100%;
+    min-height: 520px;
+    border: none;
+    background: #000;
+}
+
+#stellarium-iframe.hidden {
+    display: none;
+}
+
+.skymap-overlay-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+}
+
+.canvas-help-badge {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(10, 10, 10, 0.85);
+    border: 1px solid var(--border-dark-red);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    color: var(--text-muted-red);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.map-btn {
+    background: rgba(13, 13, 13, 0.85);
+    border: 1px solid var(--border-dark-red);
+    color: var(--text-primary-red);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.map-btn.active, .map-btn:hover {
+    border-color: var(--border-crimson);
+    background: var(--border-dark-red);
+    color: var(--text-bright-red);
+}
+
+.skymap-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.skymap-toolbar-top {
+    font-size: 0.75rem;
+}
+
+.skymap-legend {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    padding: 10px 14px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.78rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.leg-icon {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.leg-icon.reticle-icon {
+    border: 2px solid var(--text-bright-red);
+    background: transparent;
+}
+
+.leg-icon.target-icon {
+    border: 2px dashed #ff9999;
+    background: rgba(255, 0, 0, 0.3);
+}
+
+.leg-icon.star-icon {
+    background: #ff6666;
+    box-shadow: 0 0 6px #ff3333;
+}
+
+/* --------------------------------------------------------------------------
+   Sidereal Active Tracking Control Box
+   -------------------------------------------------------------------------- */
+.tracking-control-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    padding: 12px;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.track-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+}
+
+.track-title {
+    font-weight: bold;
+    color: var(--text-bright-red);
+}
+
+.track-pill {
+    background: #2b0505;
+    border: 1px solid var(--border-dark-red);
+    color: var(--text-muted-red);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.track-pill.active {
+    background: var(--border-crimson);
+    color: #000;
+    box-shadow: var(--neon-red-glow);
+}
+
+/* --------------------------------------------------------------------------
+   Calibration Multi-Tab Interface
+   -------------------------------------------------------------------------- */
+.calib-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-crimson);
+    gap: 4px;
+}
+
+.calib-tab-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    border-bottom: none;
+    color: var(--text-muted-red);
+    font-family: var(--font-heading);
+    font-size: 0.72rem;
+    padding: 8px 10px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.calib-tab-btn.active, .calib-tab-btn:hover {
+    background: rgba(220, 38, 38, 0.2);
+    border-color: var(--border-crimson);
+    color: var(--text-bright-red);
+    font-weight: bold;
+}
+
+.calib-tab-content {
+    display: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    border-top: none;
+    padding: 14px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.calib-tab-content.active {
+    display: block;
+}
+
+.margin-top-8 {
+    margin-top: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Form & Input Components
+   -------------------------------------------------------------------------- */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.input-group label {
+    font-size: 0.8rem;
+    color: var(--text-muted-red);
+    letter-spacing: 0.5px;
+}
+
+.tactical-input {
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-dark-red);
+    color: var(--text-primary-red);
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    padding: 8px 12px;
+    border-radius: 4px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.tactical-input:focus {
+    border-color: var(--border-crimson);
+    box-shadow: var(--neon-red-border);
+}
+
+.port-input-wrapper {
+    display: flex;
+    gap: 8px;
+}
+
+.port-input-wrapper select {
+    flex: 1;
+}
+
+.btn-icon {
+    background: var(--bg-input);
+    border: 1px solid var(--border-dark-red);
+    color: var(--text-primary-red);
+    width: 38px;
+    height: 38px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn-icon:hover {
+    border-color: var(--border-crimson);
+    background: var(--border-dark-red);
+}
+
+/* --------------------------------------------------------------------------
+   Tactical Buttons
+   -------------------------------------------------------------------------- */
+.btn-tactical {
+    background-color: #1f0505;
+    border: 1px solid var(--border-crimson);
+    color: var(--text-primary-red);
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 10px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-tactical:hover {
+    background-color: var(--border-crimson);
+    color: #050505;
+    box-shadow: var(--neon-red-glow);
+}
+
+.btn-tactical:active {
+    transform: translateY(1px);
+}
+
+.btn-accent {
+    background-color: rgba(220, 38, 38, 0.2);
+    border: 1.5px solid var(--border-crimson);
+}
+
+.btn-high-accent {
+    background-color: var(--border-crimson);
+    color: #050505;
+    font-weight: 800;
+}
+
+.btn-high-accent:hover {
+    background-color: #ff1a1a;
+    color: #000;
+}
+
+.block-btn {
+    width: 100%;
+    padding: 12px;
+}
+
+.control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.flex-1 { flex: 1; }
+
+/* label-group: used in hardware panel for status text layout */
+.label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.field-title {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: var(--text-primary-red);
+}
+
+.field-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted-red);
+}
+
+/* toggle-group: side-by-side label + button pairing */
+.toggle-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.toggle-group label {
+    font-size: 0.78rem;
+    color: var(--text-muted-red);
+}
+
+/* btn-connect: connect button style modifier */
+.btn-connect {
+    min-width: 160px;
+    background-color: #1f0505;
+    border-color: var(--border-dark-red);
+}
+
+.btn-connect:hover {
+    border-color: var(--border-crimson);
+}
+
+.divider-line {
+    height: 1px;
+    background-color: var(--border-subtle);
+    margin: 4px 0;
+}
+
+/* --------------------------------------------------------------------------
+   Diagnostic Indicator Box
+   -------------------------------------------------------------------------- */
+.indicator-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    padding: 10px 14px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.8rem;
+}
+
+.indicator-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ind-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #2b0505;
+    border: 1px solid var(--border-dark-red);
+}
+
+.ind-dot.active {
+    background-color: var(--text-bright-red);
+    box-shadow: var(--neon-red-glow);
+}
+
+/* --------------------------------------------------------------------------
+   Telemetry Cards
+   -------------------------------------------------------------------------- */
+.telemetry-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    border-radius: 5px;
+    padding: 12px;
+}
+
+/* highlight-card: prominent call-to-action card in sky map sidebar */
+.telemetry-card.highlight-card {
+    border-color: var(--border-crimson);
+    background: rgba(220, 38, 38, 0.06);
+    box-shadow: 0 0 8px rgba(220, 38, 38, 0.15) inset;
+}
+
+/* alt-border: alternate crimson border for degree telemetry panel */
+.telemetry-card.alt-border {
+    border-color: var(--border-crimson);
+    border-left: 3px solid var(--text-bright-red);
+}
+
+.telemetry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 6px;
+}
+
+.card-title {
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    color: var(--text-bright-red);
+}
+
+.card-tag {
+    font-size: 0.7rem;
+    background: rgba(220, 38, 38, 0.2);
+    border: 1px solid var(--border-dark-red);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.telemetry-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.telem-box {
+    background: var(--bg-dark-base);
+    border: 1px solid var(--border-subtle);
+    padding: 8px 10px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+}
+
+.telem-box.highlight {
+    border-color: var(--border-dark-red);
+    background: rgba(220, 38, 38, 0.05);
+}
+
+.telem-label {
+    font-size: 0.68rem;
+    color: var(--text-muted-red);
+}
+
+.telem-val {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--text-bright-red);
+    margin-top: 2px;
+}
+
+.form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.button-row-2 {
+    display: flex;
+    gap: 10px;
+}
+
+.timestamp-display {
+    font-size: 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    background: var(--bg-card);
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border-subtle);
+}
+
+.search-box-row {
+    display: flex;
+    gap: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Directional D-Pad Controls
+   -------------------------------------------------------------------------- */
+.speed-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.dpad-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin: 10px auto;
+    max-width: 280px;
+}
+
+.dpad-middle-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    justify-content: center;
+}
+
+.dpad-btn {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-crimson);
+    color: var(--text-bright-red);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.dpad-btn:hover {
+    background-color: var(--border-crimson);
+    color: #000;
+    box-shadow: var(--neon-red-glow);
+}
+
+.dpad-btn:active {
+    transform: scale(0.95);
+}
+
+.dpad-up, .dpad-down {
+    width: 90px;
+    height: 60px;
+}
+
+.dpad-left, .dpad-right {
+    width: 80px;
+    height: 70px;
+}
+
+.dpad-center {
+    width: 90px;
+    height: 70px;
+    background: #2b0505;
+    border-color: #ff1a1a;
+}
+
+.dpad-center:hover {
+    background: #ff1a1a;
+    color: #000;
+}
+
+.dpad-btn .arrow {
+    font-size: 1.2rem;
+}
+
+.dpad-btn .label {
+    font-size: 0.7rem;
+    font-weight: bold;
+    font-family: var(--font-heading);
+}
+
+/* --------------------------------------------------------------------------
+   Camera Live View & Accordion
+   -------------------------------------------------------------------------- */
+.accordion-header {
+    cursor: pointer;
+    justify-content: space-between;
+    user-select: none;
+}
+
+.accordion-arrow {
+    font-size: 1.1rem;
+    transition: transform 0.3s ease;
+}
+
+.accordion-arrow.collapsed {
+    transform: rotate(-90deg);
+}
+
+.accordion-content.hidden {
+    display: none;
+}
+
+.camera-layout {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+}
+
+.viewport-container {
+    background: #000;
+    border: 1px solid var(--border-crimson);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.viewport-header {
+    background: rgba(220, 38, 38, 0.15);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-dark-red);
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+}
+
+.vp-title { font-weight: bold; color: var(--text-bright-red); }
+.vp-status { color: var(--text-primary-red); }
+
+.viewport-frame {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background-color: #050505;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.viewport-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.camera-controls-side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.control-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dark-red);
+    padding: 14px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.control-box.highlight-box {
+    border-color: var(--border-crimson);
+    background: rgba(220, 38, 38, 0.05);
+}
+
+.control-box h3 {
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    color: var(--text-bright-red);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 4px;
+}
+
+.intervalometer-status-card {
+    background: var(--bg-dark-base);
+    border: 1px solid var(--border-subtle);
+    padding: 10px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.8rem;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.feedback-msg {
+    font-size: 0.78rem;
+    color: var(--text-bright-red);
+    min-height: 16px;
+    margin-top: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   Intervalometer Progress Bar
+   -------------------------------------------------------------------------- */
+.intervalometer-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #1a0505;
+    border: 1px solid var(--border-dark-red);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.intervalometer-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--border-crimson), var(--text-bright-red));
+    width: 0%;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+    border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   App Footer
+   -------------------------------------------------------------------------- */
+.app-footer {
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-dark-red);
+    text-align: center;
+    padding: 10px;
+    font-size: 0.75rem;
+    color: var(--text-muted-red);
+}
+
+/* --------------------------------------------------------------------------
+   Mobile Responsiveness (Auto Stack on Smaller Displays)
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 14px;
+    }
+
+    .skymap-container-layout, .camera-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .form-grid-3 {
+        grid-template-columns: 1fr;
+    }
+
+    .header-branding .title-group h1 {
+        font-size: 1.1rem;
+    }
+
+    .sys-clock {
+        width: 100%;
+        text-align: center;
+    }
+}

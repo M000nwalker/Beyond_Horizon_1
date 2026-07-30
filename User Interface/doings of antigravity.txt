@@ -1,0 +1,76 @@
+================================================================================
+          DOINGS OF ANTIGRAVITY - ALT-AZIMUTH TELESCOPE HUB SUMMARY
+================================================================================
+
+1. SYSTEM ARCHITECTURE & SETUP
+   - Created full production-ready FastAPI backend (`app.py`) for the local web server.
+   - Built a responsive single-page web dashboard (`static/index.html`, `static/style.css`, `static/app.js`).
+   - Integrated top-level console dependency setup command:
+     pip install fastapi uvicorn pyserial requests opencv-python
+
+2. REAL-TIME SIDEREAL TARGET TRACKING ENGINE
+   - Implemented background async 1Hz tracking task `run_active_tracking_loop()`.
+   - Calculates Earth's diurnal rotation drift rate (~15 degrees/hour = ~0.004167 degrees/sec) to continuously update targeted object coordinates.
+   - Automatically transmits 1Hz incremental tracking packets over Serial (`TRACK:ALT:<alt>:AZ:<az>:DRIFT_AZ:<drift>\n`) to maintain centering on calibrated objects.
+   - Added user control badge and toggle button: "ENABLE SIDEREAL TRACKING (1Hz)".
+
+3. DEGREE-BASED MOTION & TELEMETRY PROTOCOL (REMOVED STEP ASSUMPTIONS)
+   - Completely eliminated hardcoded motor step counts (`alt_steps`, `az_steps`) from UI readouts, API endpoints, and serial packets.
+   - Converted all motion, GoTo, and calibration protocols to output explicit floating-point **Degree Angles and Required Deltas** (e.g. `CURRENT ALTITUDE: 45.2300°`, `REQUIRED ΔALTITUDE: +0.0500°`, `REQUIRED ΔAZIMUTH: -0.1200°`).
+   - Enables ESP32 firmware to perform its own local microstep math based on configured stepper motor gear ratios.
+
+4. PANNABLE & ZOOMABLE CANVAS SKY MAP + STELLARIUM WEB EMBEDDER
+   - Upgraded HTML5 2D Canvas Star Map to support **Interactive Mouse Drag Panning** (`panX`, `panY`), **Mouse Wheel Zooming** (0.5x to 5.0x scale), and touch dragging.
+   - Added Reset View button (`RESET PAN/ZOOM`) to instantly recenter Zenith (Alt 90°).
+   - Integrated a dual-view switcher allowing users to toggle between:
+     * **PANNABLE CANVAS MAP**: Custom night-vision 2D celestial canvas rendering polar grids, stars, planets, reticles, and raycast target selection.
+     * **STELLARIUM WEB EMBED**: Directly embedded live, responsive Stellarium Web Application interface (`http://localhost:8090/`) in an iframe window inside the dashboard panel.
+
+5. MULTI-MODE ALIGNMENT & CALIBRATION SUITE
+   - Built 3-tab calibration suite supporting:
+     * Mode 1: Celestial Star / Object Sync — Select or click a visible object (e.g. Polaris, Jupiter, Sirius, Vega) currently centered in the eyepiece -> click "CALIBRATE TO STAR/OBJECT" to update internal coordinates.
+     * Mode 2: Ground Level & Cardinal Heading Alignment — Select Cardinal Direction (North 0°, East 90°, South 180°, West 270°) and Elevation Pitch (Horizon Level 0°, Zenith 90°) -> click "APPLY CARDINAL ALIGNMENT".
+     * Mode 3: Direct Manual Entry — Enter exact numerical Altitude and Azimuth angles -> click "SET POINTING ANGLES".
+
+6. ESP32 SERIAL MOTOR CONTROLLER & HARDWARE MOCKING
+   - Configured `pyserial` connection manager supporting COM/Serial port detection, selection, connect/disconnect commands.
+   - Designed clean serial packet protocol:
+     * GoTo: GOTO:ALT:<alt>:AZ:<az>\n
+     * Manual Slew: MANUAL:DIR:<dir>:SPEED:<speed>:TARGET_ALT:<alt>:TARGET_AZ:<az>\n
+     * Sidereal Tracking: TRACK:ALT:<alt>:AZ:<az>:DRIFT_AZ:<drift>\n
+     * Calibration Packets: CALIBRATE:OBJECT:NAME:<name>:ALT:<alt>:AZ:<az>\n, CALIBRATE:CARDINAL:DIR:<dir>:ALT:<alt>:AZ:<az>\n, CALIBRATE:MANUAL:ALT:<alt>:AZ:<az>\n
+   - Implemented try-except hardware interceptor: when serial hardware is absent, outgoing serial packets are intercepted gracefully and printed directly to the terminal console without throwing unhandled runtime exceptions.
+
+7. CANON DSLR CAMERA & LIVE VIEW STREAMING MOCK ENGINE
+   - Built OpenCV (`opencv-python`) simulated camera feed generator returning MJPEG stream (`/api/camera/liveview`).
+   - Generated dark sky starfield frame canvas with noise texture, twinkling star brightness fluctuations, target planet/nebula glow, and a tactical red crosshair reticle overlay.
+   - Added camera exposure settings controls for ISO (100 to 12800) and Shutter Speed (1/1000s to 30s / BULB).
+   - Created an async background Astrophotography Intervalometer engine supporting frame count, exposure duration, inter-frame delay, and live progress reporting.
+
+8. TACTICAL NIGHT-VISION DASHBOARD INTERFACE
+   - Designed dark-adaptation UI theme using deep charcoal (#050505, #0d0d0d) and tactical crimson accents (#ef4444, #dc2626, #7f1d1d).
+   - Styled typography using Orbitron and Share Tech Mono Google Fonts.
+   - Constructed a responsive grid dashboard layout that folds into a single-column scrollable stack on mobile devices.
+   - Implemented interactive hardware panels: Connection status indicators, Dual-View Pannable Sky Map & Stellarium iFrame, GPS location sync button, Target search & GoTo engine, Degree Telemetry & Sidereal Tracking controls, Multi-Mode Calibration tabs, tactile 4-button D-Pad with speed multipliers, and a collapsible Camera Live View drawer.
+
+================================================================================
+
+9. BUG FIXES & CODE QUALITY IMPROVEMENTS (Session 2 - 2026-07-30)
+   - CRITICAL FIX: Resolved threading deadlock in `run_active_tracking_loop()`.
+     Tracking loop was calling `send_esp32_packet()` (which acquires `state.lock`)
+     INSIDE a `with state.lock:` block -- guaranteeing deadlock on real hardware.
+     Now state is read/updated under the lock, values copied out, lock released,
+     then packet sent safely outside the lock.
+   - FIX: `toggle_camera` endpoint changed from `req: dict` (broken JSON parsing)
+     to `req: CameraConnectRequest` (proper Pydantic model). Camera connect/disconnect
+     now reliably parses JSON body from frontend.
+   - FIX: Added all missing CSS classes referenced in HTML but absent in style.css:
+     highlight-card, alt-border, label-group, field-title, field-desc, toggle-group,
+     btn-connect, and #skymap-canvas.hidden.
+   - IMPROVEMENT: Added visual animated progress bar to intervalometer section,
+     showing real-time frame capture progress (0-100%).
+   - IMPROVEMENT: Sky map object altitude now simulates realistic rise/transit/set arcs
+     using sinusoidal animation instead of fixed values.
+   - IMPROVEMENT: CameraConnectRequest Pydantic model added for type-safe camera toggle.
+
+================================================================================

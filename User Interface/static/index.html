@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond Horizon - Tactical Telescope Control System</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body class="tactical-theme">
+    <!-- Top System Header -->
+    <header class="app-header">
+        <div class="header-branding">
+            <div class="logo-icon">&#x25C9;</div>
+            <div class="title-group">
+                <h1>BEYOND HORIZON - 1</h1>
+                <span class="sub-title">ALT-AZIMUTH MOUNT AUTOMATION HUB</span>
+            </div>
+        </div>
+
+        <div class="header-status-bar">
+            <div class="status-badge" id="badge-stellarium">
+                <span class="status-dot disconnected"></span>
+                <span class="badge-label">STELLARIUM API</span>
+            </div>
+            <div class="status-badge" id="badge-esp32">
+                <span class="status-dot disconnected"></span>
+                <span class="badge-label">ESP32 MOTOR</span>
+            </div>
+            <div class="status-badge" id="badge-camera">
+                <span class="status-dot disconnected"></span>
+                <span class="badge-label">CANON DSLR</span>
+            </div>
+            <div class="sys-clock" id="system-clock">00:00:00 UTC</div>
+        </div>
+    </header>
+
+    <!-- Main Responsive Grid Container -->
+    <main class="dashboard-grid">
+
+        <!-- PANEL: INTERACTIVE TACTICAL SKY MAP & STELLARIUM EMBED (SPAN FULL) -->
+        <section class="panel-card span-full" id="panel-skymap">
+            <div class="panel-header">
+                <div class="title-left">
+                    <span class="panel-icon">&#x2604;</span>
+                    <h2>CELESTIAL SKY MAP & STELLARIUM VIEW SUITE</h2>
+                </div>
+                <div class="skymap-toolbar-top">
+                    <div class="map-view-switcher">
+                        <button id="btn-view-canvas" class="view-switch-btn active">PANNABLE CANVAS MAP</button>
+                        <button id="btn-view-stellarium" class="view-switch-btn">STELLARIUM WEB EMBED</button>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-body skymap-container-layout">
+                <!-- Pannable Canvas Container & Stellarium iFrame Wrapper -->
+                <div class="skymap-canvas-wrapper" id="skymap-view-wrapper">
+                    <canvas id="skymap-canvas" width="700" height="500"></canvas>
+                    <iframe id="stellarium-iframe" src="http://localhost:8090" title="Stellarium Web Interface" class="hidden"></iframe>
+
+                    <div class="skymap-overlay-controls" id="canvas-overlay-controls">
+                        <button id="btn-map-toggle-grid" class="map-btn active" title="Toggle Grid Overlay">GRID: ON</button>
+                        <button id="btn-map-reset-view" class="map-btn" title="Center Zenith & Reset Zoom">RESET PAN/ZOOM</button>
+                    </div>
+                    <div class="canvas-help-badge" id="canvas-help-text">
+                        <span>DRAG MOUSE TO PAN • SCROLL WHEEL TO ZOOM</span>
+                    </div>
+                </div>
+
+                <!-- Sky Map Telemetry & Quick Action Sidebar -->
+                <div class="skymap-sidebar">
+                    <div class="telemetry-card highlight-card">
+                        <div class="telemetry-header">
+                            <span class="card-title" id="map-target-name">JUPITER</span>
+                            <span class="card-tag" id="map-target-type">PLANET</span>
+                        </div>
+                        <div class="telemetry-grid">
+                            <div class="telem-box">
+                                <span class="telem-label">RIGHT ASCENSION</span>
+                                <span class="telem-val" id="map-target-ra">02h 15m 12.0s</span>
+                            </div>
+                            <div class="telem-box">
+                                <span class="telem-label">DECLINATION</span>
+                                <span class="telem-val" id="map-target-dec">+12° 30' 45"</span>
+                            </div>
+                            <div class="telem-box highlight">
+                                <span class="telem-label">LOCAL ALTITUDE</span>
+                                <span class="telem-val" id="map-target-alt">58.40°</span>
+                            </div>
+                            <div class="telem-box highlight">
+                                <span class="telem-label">LOCAL AZIMUTH</span>
+                                <span class="telem-val" id="map-target-az">142.80°</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="skymap-legend">
+                        <div class="legend-item"><span class="leg-icon reticle-icon"></span><span>Telescope Aim Reticle</span></div>
+                        <div class="legend-item"><span class="leg-icon target-icon"></span><span>Selected GoTo Target</span></div>
+                        <div class="legend-item"><span class="leg-icon star-icon"></span><span>Stars & Objects</span></div>
+                    </div>
+
+                    <button id="btn-map-goto" class="btn-tactical btn-high-accent block-btn">
+                        <span class="btn-icon">&#x25C9;</span> POINT TO MAP TARGET (GOTO)
+                    </button>
+                    <button id="btn-map-calibrate" class="btn-tactical block-btn">
+                        <span class="btn-icon">&#x2694;</span> CALIBRATE MOUNT TO THIS OBJECT
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL 1: HARDWARE CONNECTION PANEL -->
+        <section class="panel-card" id="panel-hardware">
+            <div class="panel-header">
+                <span class="panel-icon">&#x2699;</span>
+                <h2>1. HARDWARE CONNECTION PANEL</h2>
+            </div>
+            <div class="panel-body">
+                <div class="control-row">
+                    <div class="input-group flex-1">
+                        <label for="com-port-select">ESP32 COM / Serial Port:</label>
+                        <div class="port-input-wrapper">
+                            <select id="com-port-select" class="tactical-input">
+                                <option value="COM3">COM3 (Default)</option>
+                                <option value="COM1">COM1</option>
+                                <option value="COM4">COM4</option>
+                                <option value="/dev/ttyUSB0">/dev/ttyUSB0</option>
+                            </select>
+                            <button id="btn-refresh-ports" class="btn-icon" title="Refresh Available Ports">&#x21BB;</button>
+                        </div>
+                    </div>
+                    <div class="toggle-group">
+                        <label>ESP32 Status:</label>
+                        <button id="btn-toggle-esp32" class="btn-tactical btn-connect">CONNECT ESP32</button>
+                    </div>
+                </div>
+
+                <div class="divider-line"></div>
+
+                <div class="control-row">
+                    <div class="label-group flex-1">
+                        <span class="field-title">Canon DSLR Camera (USB Mock):</span>
+                        <span class="field-desc" id="camera-status-desc">Live View Feed offline</span>
+                    </div>
+                    <div class="toggle-group">
+                        <button id="btn-toggle-camera" class="btn-tactical btn-connect">CONNECT CAMERA</button>
+                    </div>
+                </div>
+
+                <div class="indicator-box">
+                    <div class="indicator-item">
+                        <span class="ind-dot" id="ind-stellarium"></span>
+                        <span>Stellarium Link (localhost:8090)</span>
+                    </div>
+                    <div class="indicator-item">
+                        <span class="ind-dot" id="ind-esp32"></span>
+                        <span id="ind-esp32-txt">ESP32 Serial (Disconnected/Mock Output)</span>
+                    </div>
+                    <div class="indicator-item">
+                        <span class="ind-dot" id="ind-camera"></span>
+                        <span id="ind-camera-txt">Canon DSLR Live Stream (Inactive)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL 2: OBSERVER LOCATION & TIME SYNCHRONIZATION -->
+        <section class="panel-card" id="panel-location">
+            <div class="panel-header">
+                <span class="panel-icon">&#x2295;</span>
+                <h2>2. OBSERVER LOCATION & TIME SYNC</h2>
+            </div>
+            <div class="panel-body">
+                <div class="form-grid-3">
+                    <div class="input-group">
+                        <label for="input-lat">Latitude (°N):</label>
+                        <input type="number" id="input-lat" class="tactical-input" step="0.000001" value="23.810300">
+                    </div>
+                    <div class="input-group">
+                        <label for="input-lon">Longitude (°E):</label>
+                        <input type="number" id="input-lon" class="tactical-input" step="0.000001" value="90.412500">
+                    </div>
+                    <div class="input-group">
+                        <label for="input-elevation">Elevation (meters):</label>
+                        <input type="number" id="input-elevation" class="tactical-input" step="1" value="15">
+                    </div>
+                </div>
+
+                <div class="timestamp-display">
+                    <span class="label">Browser System Timestamp:</span>
+                    <span id="txt-browser-time" class="val">2026-07-30 20:10:00 UTC</span>
+                </div>
+
+                <button id="btn-sync-location" class="btn-tactical btn-accent block-btn">
+                    <span class="btn-icon">&#x21C4;</span> SYNC LOCATION & TIME TO STELLARIUM
+                </button>
+                <div id="location-sync-feedback" class="feedback-msg"></div>
+            </div>
+        </section>
+
+        <!-- PANEL 3: TARGET SEARCH & GOTO ENGINE -->
+        <section class="panel-card" id="panel-goto">
+            <div class="panel-header">
+                <span class="panel-icon">&#x2316;</span>
+                <h2>3. TARGET SEARCH & GOTO ENGINE</h2>
+            </div>
+            <div class="panel-body">
+                <div class="search-box-row">
+                    <input type="text" id="target-search-input" class="tactical-input flex-1" placeholder="Search planet, star, Messier object (e.g., Jupiter, M31, Polaris)...">
+                    <button id="btn-search-target" class="btn-tactical">SEARCH</button>
+                </div>
+
+                <div class="telemetry-card">
+                    <div class="telemetry-header">
+                        <span class="card-title" id="target-display-name">JUPITER (Simulated / Stellarium)</span>
+                        <span class="card-tag" id="target-display-type">PLANET</span>
+                    </div>
+
+                    <div class="telemetry-grid">
+                        <div class="telem-box">
+                            <span class="telem-label">RIGHT ASCENSION (RA)</span>
+                            <span class="telem-val" id="val-target-ra">02h 15m 12.0s</span>
+                        </div>
+                        <div class="telem-box">
+                            <span class="telem-label">DECLINATION (DEC)</span>
+                            <span class="telem-val" id="val-target-dec">+12° 30' 45"</span>
+                        </div>
+                        <div class="telem-box highlight">
+                            <span class="telem-label">TARGET ALTITUDE (ALT)</span>
+                            <span class="telem-val" id="val-target-alt">58.4000°</span>
+                        </div>
+                        <div class="telem-box highlight">
+                            <span class="telem-label">TARGET AZIMUTH (AZ)</span>
+                            <span class="telem-val" id="val-target-az">142.8000°</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="btn-point-to-object" class="btn-tactical btn-high-accent block-btn">
+                    <span class="btn-icon">&#x25C9;</span> POINT TO OBJECT (GOTO)
+                </button>
+                <div id="goto-feedback" class="feedback-msg"></div>
+            </div>
+        </section>
+
+        <!-- PANEL 4: DEGREE TELEMETRY & REAL-TIME SIDEREAL TRACKING -->
+        <section class="panel-card" id="panel-calibration">
+            <div class="panel-header">
+                <span class="panel-icon">&#x2694;</span>
+                <h2>4. DEGREE TELEMETRY & SIDEREAL TRACKING</h2>
+            </div>
+            <div class="panel-body">
+                <!-- Degree Telemetry Box -->
+                <div class="telemetry-card alt-border">
+                    <div class="telemetry-header">
+                        <span class="card-title">MOUNT EXPLICIT DEGREE TELEMETRY</span>
+                        <span class="card-tag" id="calibration-status-tag">NOT CALIBRATED</span>
+                    </div>
+                    <div class="telemetry-grid">
+                        <div class="telem-box">
+                            <span class="telem-label">CURRENT ALTITUDE</span>
+                            <span class="telem-val" id="val-current-alt">00.0000°</span>
+                        </div>
+                        <div class="telem-box">
+                            <span class="telem-label">CURRENT AZIMUTH</span>
+                            <span class="telem-val" id="val-current-az">000.0000°</span>
+                        </div>
+                        <div class="telem-box highlight">
+                            <span class="telem-label">REQUIRED ΔALTITUDE</span>
+                            <span class="telem-val" id="val-delta-alt">+0.0000°</span>
+                        </div>
+                        <div class="telem-box highlight">
+                            <span class="telem-label">REQUIRED ΔAZIMUTH</span>
+                            <span class="telem-val" id="val-delta-az">+0.0000°</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidereal Active Tracking Control Bar -->
+                <div class="tracking-control-box">
+                    <div class="track-info">
+                        <span class="track-title">AUTOMATIC SIDEREAL TRACKING:</span>
+                        <span class="track-pill" id="track-status-pill">OFF</span>
+                    </div>
+                    <button id="btn-toggle-tracking" class="btn-tactical btn-accent block-btn">
+                        <span class="btn-icon">&#x21BB;</span> ENABLE SIDEREAL TRACKING (1Hz)
+                    </button>
+                </div>
+
+                <!-- Calibration Modes Navigation Tabs -->
+                <div class="calib-tabs margin-top-8">
+                    <button class="calib-tab-btn active" data-tab="tab-star">1. CELESTIAL STAR ALIGN</button>
+                    <button class="calib-tab-btn" data-tab="tab-cardinal">2. CARDINAL & LEVEL</button>
+                    <button class="calib-tab-btn" data-tab="tab-manual">3. DIRECT MANUAL</button>
+                </div>
+
+                <!-- TAB 1: CELESTIAL STAR / OBJECT ALIGNMENT -->
+                <div class="calib-tab-content active" id="tab-star">
+                    <div class="input-group">
+                        <label for="calib-star-select">Center Star/Object in Eyepiece & Select:</label>
+                        <select id="calib-star-select" class="tactical-input">
+                            <option value="Polaris">Polaris (North Star - Alt 23.8°, Az 0.5°)</option>
+                            <option value="Jupiter" selected>Jupiter (Planet - Alt 58.4°, Az 142.8°)</option>
+                            <option value="Mars">Mars (Planet - Alt 35.2°, Az 210.5°)</option>
+                            <option value="Saturn">Saturn (Planet - Alt 42.1°, Az 175.3°)</option>
+                            <option value="Moon">Moon (Satellite - Alt 31.6°, Az 128.4°)</option>
+                            <option value="Sirius">Sirius (Alpha Canis Majoris)</option>
+                            <option value="Vega">Vega (Alpha Lyrae)</option>
+                            <option value="Betelgeuse">Betelgeuse (Alpha Orionis)</option>
+                            <option value="Arcturus">Arcturus (Alpha Boötis)</option>
+                            <option value="M31 (Andromeda)">M31 Andromeda Galaxy</option>
+                        </select>
+                    </div>
+                    <button id="btn-calib-star-submit" class="btn-tactical btn-high-accent block-btn margin-top-8">
+                        CALIBRATE MOUNT TO SELECTED STAR
+                    </button>
+                </div>
+
+                <!-- TAB 2: GROUND LEVEL & CARDINAL HEADING ALIGNMENT -->
+                <div class="calib-tab-content" id="tab-cardinal">
+                    <div class="form-grid-2">
+                        <div class="input-group">
+                            <label for="calib-cardinal-dir">Cardinal Facing Direction:</label>
+                            <select id="calib-cardinal-dir" class="tactical-input">
+                                <option value="NORTH" selected>NORTH (Azimuth 0.0°)</option>
+                                <option value="EAST">EAST (Azimuth 90.0°)</option>
+                                <option value="SOUTH">SOUTH (Azimuth 180.0°)</option>
+                                <option value="WEST">WEST (Azimuth 270.0°)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="calib-elevation-preset">Elevation Pitch Preset:</label>
+                            <select id="calib-elevation-preset" class="tactical-input">
+                                <option value="HORIZON" selected>HORIZON LEVEL (Altitude 0.0°)</option>
+                                <option value="ZENITH">ZENITH OVERHEAD (Altitude 90.0°)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="btn-calib-cardinal-submit" class="btn-tactical btn-high-accent block-btn margin-top-8">
+                        APPLY CARDINAL & LEVEL ALIGNMENT
+                    </button>
+                </div>
+
+                <!-- TAB 3: DIRECT MANUAL ENTRY -->
+                <div class="calib-tab-content" id="tab-manual">
+                    <div class="form-grid-2">
+                        <div class="input-group">
+                            <label for="calib-manual-alt">Current Altitude (°):</label>
+                            <input type="number" id="calib-manual-alt" class="tactical-input" step="0.0001" value="0.0000" min="-10" max="90">
+                        </div>
+                        <div class="input-group">
+                            <label for="calib-manual-az">Current Azimuth (°):</label>
+                            <input type="number" id="calib-manual-az" class="tactical-input" step="0.0001" value="0.0000" min="0" max="360">
+                        </div>
+                    </div>
+                    <button id="btn-calib-manual-submit" class="btn-tactical btn-high-accent block-btn margin-top-8">
+                        SET EXACT MOUNT POINTING ANGLES
+                    </button>
+                </div>
+
+                <div id="calibration-feedback" class="feedback-msg"></div>
+            </div>
+        </section>
+
+        <!-- PANEL 5: MANUAL DIRECTIONAL SLEW CONTROLS -->
+        <section class="panel-card" id="panel-dpad">
+            <div class="panel-header">
+                <span class="panel-icon">&#x25C7;</span>
+                <h2>5. MANUAL DIRECTIONAL SLEW CONTROLS</h2>
+            </div>
+            <div class="panel-body">
+                <div class="speed-selector-row">
+                    <label for="slew-speed-select">Slew Speed Multiplier:</label>
+                    <select id="slew-speed-select" class="tactical-input">
+                        <option value="1">1x (Guide - 0.5°/s)</option>
+                        <option value="4" selected>4x (Center - 2.0°/s)</option>
+                        <option value="16">16x (Find - 8.0°/s)</option>
+                        <option value="32">32x (Max Slew - 16.0°/s)</option>
+                    </select>
+                </div>
+
+                <div class="dpad-container">
+                    <button id="btn-dpad-up" class="dpad-btn dpad-up" title="Altitude Up (+Alt)">
+                        <span class="arrow">&#x25B2;</span>
+                        <span class="label">+ALT</span>
+                    </button>
+                    <div class="dpad-middle-row">
+                        <button id="btn-dpad-left" class="dpad-btn dpad-left" title="Azimuth Left (-Az)">
+                            <span class="arrow">&#x25C4;</span>
+                            <span class="label">-AZ</span>
+                        </button>
+                        <button id="btn-dpad-stop" class="dpad-btn dpad-center" title="STOP MOTION">
+                            <span class="stop-icon">&#x25A0;</span>
+                            <span class="label">STOP</span>
+                        </button>
+                        <button id="btn-dpad-right" class="dpad-btn dpad-right" title="Azimuth Right (+Az)">
+                            <span class="arrow">&#x25BA;</span>
+                            <span class="label">+AZ</span>
+                        </button>
+                    </div>
+                    <button id="btn-dpad-down" class="dpad-btn dpad-down" title="Altitude Down (-Alt)">
+                        <span class="arrow">&#x25BC;</span>
+                        <span class="label">-ALT</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL 6: CAMERA LIVE VIEW & INTERVALOMETER -->
+        <section class="panel-card span-full" id="panel-camera">
+            <div class="panel-header accordion-header" id="camera-accordion-toggle">
+                <div class="title-left">
+                    <span class="panel-icon">&#x25C9;</span>
+                    <h2>6. CAMERA LIVE VIEW & INTERVALOMETER SUITE</h2>
+                </div>
+                <span class="accordion-arrow" id="camera-accordion-arrow">&#x25BC;</span>
+            </div>
+
+            <div class="panel-body accordion-content" id="camera-accordion-body">
+                <div class="camera-layout">
+                    <div class="viewport-container">
+                        <div class="viewport-header">
+                            <span class="vp-title">CANON DSLR OPENCV SIMULATED LIVE VIEW STREAM</span>
+                            <span class="vp-status" id="liveview-stream-status">STREAM ACTIVE</span>
+                        </div>
+                        <div class="viewport-frame">
+                            <img id="camera-liveview-img" src="/api/camera/liveview" alt="Camera Live View Feed">
+                        </div>
+                    </div>
+
+                    <div class="camera-controls-side">
+                        <div class="control-box">
+                            <h3>CAMERA EXPOSURE SETTINGS</h3>
+                            <div class="form-grid-2">
+                                <div class="input-group">
+                                    <label for="cam-iso-select">ISO Sensitivity:</label>
+                                    <select id="cam-iso-select" class="tactical-input">
+                                        <option value="100">ISO 100</option>
+                                        <option value="400">ISO 400</option>
+                                        <option value="800" selected>ISO 800</option>
+                                        <option value="1600">ISO 1600</option>
+                                        <option value="3200">ISO 3200</option>
+                                        <option value="6400">ISO 6400</option>
+                                        <option value="12800">ISO 12800</option>
+                                    </select>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="cam-shutter-select">Shutter Speed:</label>
+                                    <select id="cam-shutter-select" class="tactical-input">
+                                        <option value="1/1000">1/1000s</option>
+                                        <option value="1/250">1/250s</option>
+                                        <option value="1/10" selected>1/10s</option>
+                                        <option value="1.0s">1.0 sec</option>
+                                        <option value="5.0s">5.0 sec</option>
+                                        <option value="10.0s">10.0 sec</option>
+                                        <option value="30.0s">30.0 sec</option>
+                                        <option value="BULB">BULB Mode</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="control-box highlight-box">
+                            <h3>ASTROPHOTOGRAPHY INTERVALOMETER</h3>
+                            <div class="form-grid-3">
+                                <div class="input-group">
+                                    <label for="inter-frames">Frame Count:</label>
+                                    <input type="number" id="inter-frames" class="tactical-input" min="1" max="999" value="10">
+                                </div>
+                                <div class="input-group">
+                                    <label for="inter-exposure">Exposure (sec):</label>
+                                    <input type="number" id="inter-exposure" class="tactical-input" min="0.5" step="0.5" value="5.0">
+                                </div>
+                                <div class="input-group">
+                                    <label for="inter-delay">Inter-frame Delay (s):</label>
+                                    <input type="number" id="inter-delay" class="tactical-input" min="1.0" step="0.5" value="2.0">
+                                </div>
+                            </div>
+
+                            <div class="intervalometer-status-card">
+                                <div class="stat-row">
+                                    <span>SEQUENCE STATUS:</span>
+                                    <strong id="txt-inter-status">IDLE</strong>
+                                </div>
+                                <div class="stat-row">
+                                    <span>CURRENT PROGRESS:</span>
+                                    <strong id="txt-inter-progress">0 / 10 Frames</strong>
+                                </div>
+                                <div class="intervalometer-progress-bar">
+                                    <div class="intervalometer-progress-fill" id="inter-progress-fill"></div>
+                                </div>
+                            </div>
+
+                            <div class="button-row-2">
+                                <button id="btn-start-intervalometer" class="btn-tactical btn-high-accent flex-1">
+                                    START CAPTURE SEQUENCE
+                                </button>
+                                <button id="btn-stop-intervalometer" class="btn-tactical flex-1">
+                                    STOP SEQUENCE
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="app-footer">
+        <span>Beyond Horizon -1 Telescope Mount Hub &copy; 2026. Tactical Dark-Adaptation Mode Active.</span>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
