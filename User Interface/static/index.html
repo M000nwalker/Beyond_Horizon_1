@@ -21,10 +21,6 @@
         </div>
 
         <div class="header-status-bar">
-            <div class="status-badge" id="badge-stellarium">
-                <span class="status-dot disconnected"></span>
-                <span class="badge-label">STELLARIUM API</span>
-            </div>
             <div class="status-badge" id="badge-esp32">
                 <span class="status-dot disconnected"></span>
                 <span class="badge-label">ESP32 MOTOR</span>
@@ -40,25 +36,18 @@
     <!-- Main Responsive Grid Container -->
     <main class="dashboard-grid">
 
-        <!-- PANEL: INTERACTIVE TACTICAL SKY MAP & STELLARIUM EMBED (SPAN FULL) -->
+        <!-- PANEL: INTERACTIVE TACTICAL SKY MAP & TARGET CONTROL HUB (SPAN FULL) -->
         <section class="panel-card span-full" id="panel-skymap">
             <div class="panel-header">
                 <div class="title-left">
                     <span class="panel-icon">&#x2604;</span>
-                    <h2>CELESTIAL SKY MAP & STELLARIUM VIEW SUITE</h2>
-                </div>
-                <div class="skymap-toolbar-top">
-                    <div class="map-view-switcher">
-                        <button id="btn-view-canvas" class="view-switch-btn active">PANNABLE CANVAS MAP</button>
-                        <button id="btn-view-stellarium" class="view-switch-btn">STELLARIUM WEB EMBED</button>
-                    </div>
+                    <h2>CELESTIAL SKY MAP & TARGET CONTROL HUB</h2>
                 </div>
             </div>
             <div class="panel-body skymap-container-layout">
-                <!-- Pannable Canvas Container & Stellarium iFrame Wrapper -->
+                <!-- Pannable Canvas Container -->
                 <div class="skymap-canvas-wrapper" id="skymap-view-wrapper">
                     <canvas id="skymap-canvas" width="700" height="500"></canvas>
-                    <iframe id="stellarium-iframe" src="http://localhost:8090" title="Stellarium Web Interface" class="hidden"></iframe>
 
                     <div class="skymap-overlay-controls" id="canvas-overlay-controls">
                         <button id="btn-map-toggle-grid" class="map-btn active" title="Toggle Grid Overlay">GRID: ON</button>
@@ -69,22 +58,22 @@
                     </div>
                 </div>
 
-                <!-- Sky Map Telemetry & Quick Action Sidebar -->
+                <!-- Unified Target Search & Telemetry Sidebar -->
                 <div class="skymap-sidebar">
+                    <div class="search-box-row relative-container">
+                        <div class="search-input-wrapper flex-1">
+                            <input type="text" id="target-search-input" class="tactical-input full-width" placeholder="Type target name (e.g. Jupiter, Polaris, M31)..." autocomplete="off">
+                            <div id="autocomplete-dropdown" class="autocomplete-dropdown hidden"></div>
+                        </div>
+                        <button id="btn-search-target" class="btn-tactical">SEARCH</button>
+                    </div>
+
                     <div class="telemetry-card highlight-card">
                         <div class="telemetry-header">
                             <span class="card-title" id="map-target-name">JUPITER</span>
                             <span class="card-tag" id="map-target-type">PLANET</span>
                         </div>
                         <div class="telemetry-grid">
-                            <div class="telem-box">
-                                <span class="telem-label">RIGHT ASCENSION</span>
-                                <span class="telem-val" id="map-target-ra">02h 15m 12.0s</span>
-                            </div>
-                            <div class="telem-box">
-                                <span class="telem-label">DECLINATION</span>
-                                <span class="telem-val" id="map-target-dec">+12° 30' 45"</span>
-                            </div>
                             <div class="telem-box highlight">
                                 <span class="telem-label">LOCAL ALTITUDE</span>
                                 <span class="telem-val" id="map-target-alt">58.40°</span>
@@ -103,11 +92,12 @@
                     </div>
 
                     <button id="btn-map-goto" class="btn-tactical btn-high-accent block-btn">
-                        <span class="btn-icon">&#x25C9;</span> POINT TO MAP TARGET (GOTO)
+                        <span class="btn-icon">&#x25C9;</span> POINT TO TARGET (GOTO)
                     </button>
                     <button id="btn-map-calibrate" class="btn-tactical block-btn">
                         <span class="btn-icon">&#x2694;</span> CALIBRATE MOUNT TO THIS OBJECT
                     </button>
+                    <div id="goto-feedback" class="feedback-msg"></div>
                 </div>
             </div>
         </section>
@@ -152,10 +142,6 @@
 
                 <div class="indicator-box">
                     <div class="indicator-item">
-                        <span class="ind-dot" id="ind-stellarium"></span>
-                        <span>Stellarium Link (localhost:8090)</span>
-                    </div>
-                    <div class="indicator-item">
                         <span class="ind-dot" id="ind-esp32"></span>
                         <span id="ind-esp32-txt">ESP32 Serial (Disconnected/Mock Output)</span>
                     </div>
@@ -195,62 +181,17 @@
                 </div>
 
                 <button id="btn-sync-location" class="btn-tactical btn-accent block-btn">
-                    <span class="btn-icon">&#x21C4;</span> SYNC LOCATION & TIME TO STELLARIUM
+                    <span class="btn-icon">&#x21C4;</span> SYNC LOCATION & TIME
                 </button>
                 <div id="location-sync-feedback" class="feedback-msg"></div>
             </div>
         </section>
 
-        <!-- PANEL 3: TARGET SEARCH & GOTO ENGINE -->
-        <section class="panel-card" id="panel-goto">
-            <div class="panel-header">
-                <span class="panel-icon">&#x2316;</span>
-                <h2>3. TARGET SEARCH & GOTO ENGINE</h2>
-            </div>
-            <div class="panel-body">
-                <div class="search-box-row">
-                    <input type="text" id="target-search-input" class="tactical-input flex-1" placeholder="Search planet, star, Messier object (e.g., Jupiter, M31, Polaris)...">
-                    <button id="btn-search-target" class="btn-tactical">SEARCH</button>
-                </div>
-
-                <div class="telemetry-card">
-                    <div class="telemetry-header">
-                        <span class="card-title" id="target-display-name">JUPITER (Simulated / Stellarium)</span>
-                        <span class="card-tag" id="target-display-type">PLANET</span>
-                    </div>
-
-                    <div class="telemetry-grid">
-                        <div class="telem-box">
-                            <span class="telem-label">RIGHT ASCENSION (RA)</span>
-                            <span class="telem-val" id="val-target-ra">02h 15m 12.0s</span>
-                        </div>
-                        <div class="telem-box">
-                            <span class="telem-label">DECLINATION (DEC)</span>
-                            <span class="telem-val" id="val-target-dec">+12° 30' 45"</span>
-                        </div>
-                        <div class="telem-box highlight">
-                            <span class="telem-label">TARGET ALTITUDE (ALT)</span>
-                            <span class="telem-val" id="val-target-alt">58.4000°</span>
-                        </div>
-                        <div class="telem-box highlight">
-                            <span class="telem-label">TARGET AZIMUTH (AZ)</span>
-                            <span class="telem-val" id="val-target-az">142.8000°</span>
-                        </div>
-                    </div>
-                </div>
-
-                <button id="btn-point-to-object" class="btn-tactical btn-high-accent block-btn">
-                    <span class="btn-icon">&#x25C9;</span> POINT TO OBJECT (GOTO)
-                </button>
-                <div id="goto-feedback" class="feedback-msg"></div>
-            </div>
-        </section>
-
-        <!-- PANEL 4: DEGREE TELEMETRY & REAL-TIME SIDEREAL TRACKING -->
+        <!-- PANEL 3: DEGREE TELEMETRY & REAL-TIME SIDEREAL TRACKING -->
         <section class="panel-card" id="panel-calibration">
             <div class="panel-header">
                 <span class="panel-icon">&#x2694;</span>
-                <h2>4. DEGREE TELEMETRY & SIDEREAL TRACKING</h2>
+                <h2>3. DEGREE TELEMETRY & SIDEREAL TRACKING</h2>
             </div>
             <div class="panel-body">
                 <!-- Degree Telemetry Box -->
@@ -300,22 +241,11 @@
                 <!-- TAB 1: CELESTIAL STAR / OBJECT ALIGNMENT -->
                 <div class="calib-tab-content active" id="tab-star">
                     <div class="input-group">
-                        <label for="calib-star-select">Center Star/Object in Eyepiece & Select:</label>
-                        <select id="calib-star-select" class="tactical-input">
-                            <option value="Polaris">Polaris (North Star - Alt 23.8°, Az 0.5°)</option>
-                            <option value="Jupiter" selected>Jupiter (Planet - Alt 58.4°, Az 142.8°)</option>
-                            <option value="Mars">Mars (Planet - Alt 35.2°, Az 210.5°)</option>
-                            <option value="Saturn">Saturn (Planet - Alt 42.1°, Az 175.3°)</option>
-                            <option value="Moon">Moon (Satellite - Alt 31.6°, Az 128.4°)</option>
-                            <option value="Sirius">Sirius (Alpha Canis Majoris)</option>
-                            <option value="Vega">Vega (Alpha Lyrae)</option>
-                            <option value="Betelgeuse">Betelgeuse (Alpha Orionis)</option>
-                            <option value="Arcturus">Arcturus (Alpha Boötis)</option>
-                            <option value="M31 (Andromeda)">M31 Andromeda Galaxy</option>
-                        </select>
+                        <label>Active Target Object (Unified Selection):</label>
+                        <div class="active-target-badge" id="calib-active-target-display">JUPITER (Alt 58.4000°, Az 142.8000°)</div>
                     </div>
                     <button id="btn-calib-star-submit" class="btn-tactical btn-high-accent block-btn margin-top-8">
-                        CALIBRATE MOUNT TO SELECTED STAR
+                        CALIBRATE MOUNT TO UNIFIED ACTIVE TARGET
                     </button>
                 </div>
 
@@ -365,16 +295,21 @@
             </div>
         </section>
 
-        <!-- PANEL 5: MANUAL DIRECTIONAL SLEW CONTROLS -->
+        <!-- PANEL 4: MANUAL DIRECTIONAL SLEW CONTROLS -->
         <section class="panel-card" id="panel-dpad">
             <div class="panel-header">
                 <span class="panel-icon">&#x25C7;</span>
-                <h2>5. MANUAL DIRECTIONAL SLEW CONTROLS</h2>
+                <h2>4. MANUAL DIRECTIONAL SLEW CONTROLS</h2>
             </div>
             <div class="panel-body">
                 <div class="speed-selector-row">
-                    <label for="slew-speed-select">Slew Speed Multiplier:</label>
+                    <label for="slew-speed-select">Manual Slew Speed / Fine Step Size:</label>
                     <select id="slew-speed-select" class="tactical-input">
+                        <option value="0.001">0.001° (Micro-Step - Ultra Fine)</option>
+                        <option value="0.01">0.01° (Micro-Step - Fine Centering)</option>
+                        <option value="0.05">0.05° (Fine Centering)</option>
+                        <option value="0.1">0.1° (Slow Slew)</option>
+                        <option value="0.5">0.5° (Normal Slew)</option>
                         <option value="1">1x (Guide - 0.5°/s)</option>
                         <option value="4" selected>4x (Center - 2.0°/s)</option>
                         <option value="16">16x (Find - 8.0°/s)</option>
@@ -409,12 +344,12 @@
             </div>
         </section>
 
-        <!-- PANEL 6: CAMERA LIVE VIEW & INTERVALOMETER -->
+        <!-- PANEL 5: CAMERA LIVE VIEW & INTERVALOMETER -->
         <section class="panel-card span-full" id="panel-camera">
             <div class="panel-header accordion-header" id="camera-accordion-toggle">
                 <div class="title-left">
                     <span class="panel-icon">&#x25C9;</span>
-                    <h2>6. CAMERA LIVE VIEW & INTERVALOMETER SUITE</h2>
+                    <h2>5. CAMERA LIVE VIEW & INTERVALOMETER SUITE</h2>
                 </div>
                 <span class="accordion-arrow" id="camera-accordion-arrow">&#x25BC;</span>
             </div>

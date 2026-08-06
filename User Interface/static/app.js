@@ -12,10 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
         stellariumConnected: false,
         selectedTarget: {
             name: "Jupiter",
-            alt: 58.4,
-            az: 142.8,
-            ra: "02h 15m 12.0s",
-            dec: "+12° 30' 45\"",
+            altitude: 58.4,
+            azimuth: 142.8,
+            ra_str: "02h 15m 12.0s",
+            dec_str: "+12° 30' 45\"",
             type: "Planet"
         },
         telemetry: {
@@ -35,19 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomScale: 1.0,
         isDragging: false,
         dragStartX: 0,
-        dragStartY: 0
+        dragStartY: 0,
+        isTypingInSearch: false  // Guard: prevents real-time updates from touching search input
     };
 
     // DOM Elements Cache
     const elements = {
         // Badges & Clock
-        badgeStellarium: document.getElementById('badge-stellarium'),
         badgeEsp32: document.getElementById('badge-esp32'),
         badgeCamera: document.getElementById('badge-camera'),
         systemClock: document.getElementById('system-clock'),
 
         // Indicators
-        indStellarium: document.getElementById('ind-stellarium'),
         indEsp32: document.getElementById('ind-esp32'),
         indEsp32Txt: document.getElementById('ind-esp32-txt'),
         indCamera: document.getElementById('ind-camera'),
@@ -70,28 +69,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Target & GoTo
         targetSearchInput: document.getElementById('target-search-input'),
         btnSearchTarget: document.getElementById('btn-search-target'),
-        targetDisplayName: document.getElementById('target-display-name'),
-        targetDisplayType: document.getElementById('target-display-type'),
-        valTargetRa: document.getElementById('val-target-ra'),
-        valTargetDec: document.getElementById('val-target-dec'),
-        valTargetAlt: document.getElementById('val-target-alt'),
-        valTargetAz: document.getElementById('val-target-az'),
-        btnPointToObject: document.getElementById('btn-point-to-object'),
         gotoFeedback: document.getElementById('goto-feedback'),
 
-        // Sky Map & View Switcher Elements
-        btnViewCanvas: document.getElementById('btn-view-canvas'),
-        btnViewStellarium: document.getElementById('btn-view-stellarium'),
+        // Sky Map Elements
         skymapCanvas: document.getElementById('skymap-canvas'),
-        stellariumIframe: document.getElementById('stellarium-iframe'),
         canvasOverlayControls: document.getElementById('canvas-overlay-controls'),
         canvasHelpText: document.getElementById('canvas-help-text'),
         btnMapToggleGrid: document.getElementById('btn-map-toggle-grid'),
         btnMapResetView: document.getElementById('btn-map-reset-view'),
         mapTargetName: document.getElementById('map-target-name'),
         mapTargetType: document.getElementById('map-target-type'),
-        mapTargetRa: document.getElementById('map-target-ra'),
-        mapTargetDec: document.getElementById('map-target-dec'),
         mapTargetAlt: document.getElementById('map-target-alt'),
         mapTargetAz: document.getElementById('map-target-az'),
         btnMapGoto: document.getElementById('btn-map-goto'),
@@ -106,7 +93,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btnToggleTracking: document.getElementById('btn-toggle-tracking'),
         calibrationStatusTag: document.getElementById('calibration-status-tag'),
         calibrationFeedback: document.getElementById('calibration-feedback'),
-        calibStarSelect: document.getElementById('calib-star-select'),
+        calibActiveTargetDisplay: document.getElementById('calib-active-target-display'),
+        autocompleteDropdown: document.getElementById('autocomplete-dropdown'),
         btnCalibStarSubmit: document.getElementById('btn-calib-star-submit'),
         calibCardinalDir: document.getElementById('calib-cardinal-dir'),
         calibElevationPreset: document.getElementById('calib-elevation-preset'),
@@ -226,15 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function updateStatusBadges() {
-        const stelDot = elements.badgeStellarium.querySelector('.status-dot');
-        if (appState.stellariumConnected) {
-            stelDot.className = 'status-dot connected';
-            elements.indStellarium.classList.add('active');
-        } else {
-            stelDot.className = 'status-dot disconnected';
-            elements.indStellarium.classList.remove('active');
-        }
-
         const espDot = elements.badgeEsp32.querySelector('.status-dot');
         if (appState.esp32Connected) {
             espDot.className = 'status-dot connected';
@@ -314,29 +293,105 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --------------------------------------------------------------------------
-    // 3. TARGET SEARCH & GOTO ENGINE
+    // 3. UNIFIED TARGET SEARCH, AUTOCOMPLETE & GOTO ENGINE
     // --------------------------------------------------------------------------
-    function updateTargetDisplays(targetData) {
-        appState.selectedTarget = targetData;
-        elements.targetDisplayName.textContent = targetData.name.toUpperCase();
-        elements.targetDisplayType.textContent = (targetData.type || "CELESTIAL").toUpperCase();
-        elements.valTargetRa.textContent = targetData.ra_str || targetData.ra || "--";
-        elements.valTargetDec.textContent = targetData.dec_str || targetData.dec || "--";
-        elements.valTargetAlt.textContent = `${targetData.altitude.toFixed(4)}°`;
-        elements.valTargetAz.textContent = `${targetData.azimuth.toFixed(4)}°`;
+    function updateTargetDisplays(targetData, updateSearchInputBox = false) {
+        // Normalize field names — API may return altitude/azimuth or alt/az
+        const alt = targetData.altitude !== undefined ? targetData.altitude : (targetData.alt || 0);
+        const az  = targetData.azimuth  !== undefined ? targetData.azimuth  : (targetData.az  || 0);
+        targetData.altitude = alt;
+        targetData.azimuth  = az;
 
-        elements.mapTargetName.textContent = targetData.name.toUpperCase();
-        elements.mapTargetType.textContent = (targetData.type || "CELESTIAL").toUpperCase();
-        elements.mapTargetRa.textContent = targetData.ra_str || targetData.ra || "--";
-        elements.mapTargetDec.textContent = targetData.dec_str || targetData.dec || "--";
-        elements.mapTargetAlt.textContent = `${targetData.altitude.toFixed(2)}°`;
-        elements.mapTargetAz.textContent = `${targetData.azimuth.toFixed(2)}°`;
+        appState.selectedTarget = targetData;
+
+        // ONLY update input box text when explicitly selected by user interaction
+        // AND only if user is not currently typing in the search box
+        if (updateSearchInputBox && elements.targetSearchInput && !appState.isTypingInSearch) {
+            elements.targetSearchInput.value = targetData.name;
+        }
+
+        if (elements.mapTargetName) elements.mapTargetName.textContent = targetData.name.toUpperCase();
+        if (elements.mapTargetType) elements.mapTargetType.textContent = (targetData.type || "CELESTIAL").toUpperCase();
+        if (elements.mapTargetAlt) elements.mapTargetAlt.textContent = `${alt.toFixed(2)}°`;
+        if (elements.mapTargetAz) elements.mapTargetAz.textContent = `${az.toFixed(2)}°`;
+
+        if (elements.calibActiveTargetDisplay) {
+            elements.calibActiveTargetDisplay.textContent = `${targetData.name.toUpperCase()} (Alt ${alt.toFixed(4)}°, Az ${az.toFixed(4)}°)`;
+        }
+
+        drawSkyMap();
     }
+
+    function renderAutocompleteDropdown(matches) {
+        if (!elements.autocompleteDropdown) return;
+        elements.autocompleteDropdown.innerHTML = '';
+
+        if (!matches || matches.length === 0) {
+            elements.autocompleteDropdown.classList.add('hidden');
+            return;
+        }
+
+        matches.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerHTML = `
+                <span class="item-name">${item.name}</span>
+                <div class="item-meta">
+                    <span class="item-type">${item.type}</span>
+                    <span class="item-coords">Alt ${item.altitude.toFixed(1)}° Az ${item.azimuth.toFixed(1)}°</span>
+                </div>
+            `;
+            div.addEventListener('click', () => {
+                updateTargetDisplays(item, true);
+                elements.autocompleteDropdown.classList.add('hidden');
+                elements.gotoFeedback.textContent = `Target set to "${item.name}". Click 'POINT TO TARGET' to execute GoTo.`;
+            });
+            elements.autocompleteDropdown.appendChild(div);
+        });
+
+        elements.autocompleteDropdown.classList.remove('hidden');
+    }
+
+    elements.targetSearchInput.addEventListener('focus', () => {
+        appState.isTypingInSearch = true;
+    });
+
+    elements.targetSearchInput.addEventListener('blur', () => {
+        // Small delay so autocomplete click events can fire first
+        setTimeout(() => { appState.isTypingInSearch = false; }, 300);
+    });
+
+    elements.targetSearchInput.addEventListener('input', () => {
+        appState.isTypingInSearch = true;
+        const query = elements.targetSearchInput.value.trim().toLowerCase();
+        if (!query) {
+            elements.autocompleteDropdown.classList.add('hidden');
+            return;
+        }
+
+        if (appState.skymapData && appState.skymapData.length > 0) {
+            const matches = appState.skymapData.filter(obj => obj.name.toLowerCase().includes(query));
+            renderAutocompleteDropdown(matches);
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (elements.autocompleteDropdown && !e.target.closest('.search-input-wrapper')) {
+            elements.autocompleteDropdown.classList.add('hidden');
+        }
+    });
+
+    elements.targetSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && elements.autocompleteDropdown) {
+            elements.autocompleteDropdown.classList.add('hidden');
+        }
+    });
 
     async function searchTarget() {
         const query = elements.targetSearchInput.value.trim();
         if (!query) return;
 
+        elements.autocompleteDropdown.classList.add('hidden');
         elements.gotoFeedback.textContent = `Searching database for "${query}"...`;
         try {
             const res = await fetch('/api/stellarium/search', {
@@ -346,10 +401,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (data.found) {
-                updateTargetDisplays(data);
-                elements.gotoFeedback.textContent = `Target ready. Click 'POINT TO OBJECT' to execute GoTo slew.`;
+                updateTargetDisplays(data, true);
+                elements.gotoFeedback.textContent = `Target ready. Click 'POINT TO TARGET' to execute GoTo slew.`;
             } else {
-                elements.gotoFeedback.textContent = `Object "${query}" not found in Stellarium database.`;
+                elements.gotoFeedback.textContent = `Object "${query}" not found in database.`;
             }
         } catch (err) {
             elements.gotoFeedback.textContent = `Search error: ${err.message}`;
@@ -383,29 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    elements.btnPointToObject.addEventListener('click', executeGoTo);
     elements.btnMapGoto.addEventListener('click', executeGoTo);
-
-    // --------------------------------------------------------------------------
-    // 4. MAP VIEW SWITCHER (PANNABLE CANVAS VS STELLARIUM EMBED)
-    // --------------------------------------------------------------------------
-    elements.btnViewCanvas.addEventListener('click', () => {
-        elements.btnViewCanvas.classList.add('active');
-        elements.btnViewStellarium.classList.remove('active');
-        elements.skymapCanvas.classList.remove('hidden');
-        elements.canvasOverlayControls.classList.remove('hidden');
-        elements.canvasHelpText.classList.remove('hidden');
-        elements.stellariumIframe.classList.add('hidden');
-    });
-
-    elements.btnViewStellarium.addEventListener('click', () => {
-        elements.btnViewStellarium.classList.add('active');
-        elements.btnViewCanvas.classList.remove('active');
-        elements.skymapCanvas.classList.add('hidden');
-        elements.canvasOverlayControls.classList.add('hidden');
-        elements.canvasHelpText.classList.add('hidden');
-        elements.stellariumIframe.classList.remove('hidden');
-    });
 
     // --------------------------------------------------------------------------
     // 5. PANNABLE & ZOOMABLE 2D SKY MAP CANVAS ENGINE
@@ -715,13 +748,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     elements.btnCalibStarSubmit.addEventListener('click', async () => {
-        const starName = elements.calibStarSelect.value;
-        elements.calibrationFeedback.textContent = `Aligning mount to celestial object "${starName}"...`;
+        if (!appState.selectedTarget) return;
+        const starName = appState.selectedTarget.name;
+        const alt = appState.selectedTarget.altitude;
+        const az = appState.selectedTarget.azimuth;
+
+        elements.calibrationFeedback.textContent = `Aligning mount to active target object "${starName}"...`;
         try {
             const res = await fetch('/api/mount/calibrate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'OBJECT', object_name: starName })
+                body: JSON.stringify({ mode: 'OBJECT', object_name: starName, alt: alt, az: az })
             });
             const data = await res.json();
             elements.calibrationFeedback.textContent = `[SUCCESS] ${data.description}`;
@@ -876,6 +913,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const skyData = await skyRes.json();
             if (skyData.objects) {
                 appState.skymapData = skyData.objects;
+
+                // REAL-TIME TARGET COORDINATE UPDATES
+                if (appState.selectedTarget && appState.selectedTarget.name) {
+                    const liveObj = skyData.objects.find(o => o.name.toLowerCase() === appState.selectedTarget.name.toLowerCase());
+                    if (liveObj) {
+                        appState.selectedTarget.altitude = liveObj.altitude;
+                        appState.selectedTarget.azimuth = liveObj.azimuth;
+                        updateTargetDisplays(appState.selectedTarget);
+                    }
+                }
             }
 
             const hwRes = await fetch('/api/hardware/status');
@@ -893,13 +940,29 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.valCurrentAlt.textContent = `${hwData.current_alt_deg.toFixed(4)}°`;
             elements.valCurrentAz.textContent = `${hwData.current_az_deg.toFixed(4)}°`;
 
-            const signAlt = hwData.required_delta_alt_deg >= 0 ? '+' : '';
-            const signAz = hwData.required_delta_az_deg >= 0 ? '+' : '';
-            elements.valDeltaAlt.textContent = `${signAlt}${hwData.required_delta_alt_deg.toFixed(4)}°`;
-            elements.valDeltaAz.textContent = `${signAz}${hwData.required_delta_az_deg.toFixed(4)}°`;
+            if (hwData.tracking_enabled) {
+                // When actively tracking, mount IS on target — deltas are zero
+                elements.valDeltaAlt.textContent = `+0.0000°`;
+                elements.valDeltaAz.textContent  = `+0.0000°`;
+                elements.valDeltaAlt.style.color = 'var(--text-muted-red)';
+                elements.valDeltaAz.style.color  = 'var(--text-muted-red)';
+            } else {
+                const dAlt = hwData.required_delta_alt_deg;
+                const dAz  = hwData.required_delta_az_deg;
+                const signAlt = dAlt >= 0 ? '+' : '';
+                const signAz  = dAz  >= 0 ? '+' : '';
+                elements.valDeltaAlt.textContent = `${signAlt}${dAlt.toFixed(4)}°`;
+                elements.valDeltaAz.textContent  = `${signAz}${dAz.toFixed(4)}°`;
+                // Color-code: green-ish when nearly aligned, red when large delta needed
+                const isAlignedAlt = Math.abs(dAlt) < 0.5;
+                const isAlignedAz  = Math.abs(dAz)  < 0.5;
+                elements.valDeltaAlt.style.color = isAlignedAlt ? '#22c55e' : 'var(--text-bright-red)';
+                elements.valDeltaAz.style.color  = isAlignedAz  ? '#22c55e' : 'var(--text-bright-red)';
+            }
 
             if (hwData.is_calibrated) {
-                elements.calibrationStatusTag.textContent = `CALIBRATED (${hwData.calibration_mode})`;
+                const calTargetName = hwData.calibrated_target_name || hwData.calibration_mode;
+                elements.calibrationStatusTag.textContent = `CALIBRATED: ${calTargetName.toUpperCase()}`;
                 elements.calibrationStatusTag.style.borderColor = "var(--border-crimson)";
                 elements.calibrationStatusTag.style.color = "var(--text-bright-red)";
             } else {

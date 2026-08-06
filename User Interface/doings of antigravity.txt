@@ -74,3 +74,35 @@
    - IMPROVEMENT: CameraConnectRequest Pydantic model added for type-safe camera toggle.
 
 ================================================================================
+
+10. UI CONSOLIDATION & BUG FIXES (Session 3 - 2026-07-31)
+
+   CHANGES IMPLEMENTED:
+   - CONSOLIDATED: Merged the sky map sidebar and the target search box into one
+     unified .skymap-sidebar panel. Search input, autocomplete, target telemetry,
+     legend, and GoTo/Calibrate action buttons are all in one right-side sidebar.
+
+   - REMOVED: Stellarium Web embed iframe and dual-view switcher (no longer needed).
+     Removed all associated CSS rules and JS DOM references for Stellarium.
+
+   - REMOVED: RA and Dec data readouts from all UI panels and API responses.
+     Only Local Altitude and Local Azimuth are shown in the target info panel.
+
+   - FIXED (Critical): selectedTarget initial state used alt/az keys but
+     updateTargetDisplays() expected altitude/azimuth. Fixed via normalization shim.
+
+   - FIXED (Tracking): When tracking enabled, telescope current_alt/current_az
+     match target_alt/target_az exactly. Required delta shows +0.0000 in tracking mode.
+
+   - FIXED (Search Typing Bug): Added isTypingInSearch flag using focus/blur/input
+     events. Real-time 1.2s poll updates can no longer overwrite user-typed text.
+
+   - FIXED (Delta Colors): Delta values are green when < 0.5 degree, red when larger.
+
+   - FIXED (Thread Safety): Tracking loop reads state.target_name under brief lock
+     snapshot, then calls get_live_object_coords() OUTSIDE the lock.
+
+   - FIXED (Alt-Az Math): delta_az uses shortest-angle wrap formula for correct
+     0/360 degree boundary handling on a GoTo Alt-Azimuth mount.
+
+================================================================================

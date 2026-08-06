@@ -57,6 +57,7 @@ class SystemState:
         self.target_name = "Jupiter"
         self.is_calibrated = False
         self.calibration_mode = "NONE"
+        self.calibrated_target_name = "Uncalibrated"
 
         # Real-Time Sidereal Tracking State
         self.tracking_enabled = False
@@ -170,12 +171,24 @@ def update_telemetry_simulation(new_alt: float, new_az: float):
         state.current_az = new_az
 
 
+def get_live_object_coords(name: str):
+    """Retrieves live calculated Alt and Az for a target by name from sky motion model."""
+    try:
+        skymap = get_skymap_objects()
+        for obj in skymap.get("objects", []):
+            if obj["name"].lower() == name.lower():
+                return obj["altitude"], obj["azimuth"]
+    except Exception:
+        pass
+    return None
+
+
 # REAL-TIME ACTIVE SIDEREAL TARGET TRACKING BACKGROUND ENGINE
 async def run_active_tracking_loop():
     """
     Background 1Hz async tracking loop.
-    Calculates Earth's diurnal rotation shift (~15 deg/hour = ~0.004167 deg/sec),
-    updates target position, and transmits degree tracking packets over serial to keep the mount centered.
+    Calculates live celestial position drift for Alt-Az mount,
+    updates target and telescope positions 1:1, and transmits degree tracking packets over serial.
     """
     print("[ACTIVE TRACKING ENGINE] Started 1Hz Sidereal Tracking Task.", flush=True)
     while state.tracking_enabled:
@@ -187,20 +200,32 @@ async def run_active_tracking_loop():
         dt = now - state.last_track_time
         state.last_track_time = now
 
-        # Sidereal drift rate: ~15 degrees per hour = 0.004167 degrees per second
         az_drift_deg = 0.004167 * dt
 
-        # CRITICAL: Read & update state under lock, but do NOT call send_esp32_packet
-        # inside the lock — send_esp32_packet also acquires state.lock, causing deadlock.
+        # Safely read target name under lock before releasing for skymap call
+        with state.lock:
+            target_name_snapshot = state.target_name
+
+        # Query live sky coordinates OUTSIDE the lock to avoid holding lock
+        # during potentially slow skymap computation.
+        live_coords = get_live_object_coords(target_name_snapshot)
+
+        # Initialize before lock block so variables are in scope after with-block
         should_send = False
         packet = ""
+
         with state.lock:
-            if state.is_calibrated:
-                # Update current target & telescope azimuth to follow sky rotation
-                state.current_az = (state.current_az + az_drift_deg) % 360.0
+            if live_coords:
+                state.target_alt, state.target_az = live_coords[0], live_coords[1]
+            else:
+                # Fallback: apply basic azimuthal drift if target not in sky database
                 state.target_az = (state.target_az + az_drift_deg) % 360.0
-                packet = f"TRACK:ALT:{state.current_alt:.4f}:AZ:{state.current_az:.4f}:DRIFT_AZ:{az_drift_deg:.6f}"
-                should_send = True
+
+            # Active tracking locks mount position to target coordinates exactly
+            state.current_alt = state.target_alt
+            state.current_az  = state.target_az
+            packet = f"TRACK:ALT:{state.current_alt:.4f}:AZ:{state.current_az:.4f}:DRIFT_AZ:{az_drift_deg:.6f}"
+            should_send = True
 
         # Send packet outside the lock to avoid deadlock
         if should_send:
@@ -439,8 +464,13 @@ def disconnect_esp32():
 @app.get("/api/hardware/status")
 def get_hardware_status():
     with state.lock:
+        if state.tracking_enabled:
+            state.current_alt = state.target_alt
+            state.current_az = state.target_az
+
         delta_alt = round(state.target_alt - state.current_alt, 4)
-        delta_az = round(state.target_az - state.current_az, 4)
+        raw_delta_az = state.target_az - state.current_az
+        delta_az = round((raw_delta_az + 180.0) % 360.0 - 180.0, 4)
 
         return {
             "stellarium_connected": state.stellarium_connected,
@@ -455,6 +485,7 @@ def get_hardware_status():
             "target_name": state.target_name,
             "is_calibrated": state.is_calibrated,
             "calibration_mode": state.calibration_mode,
+            "calibrated_target_name": state.calibrated_target_name,
             "tracking_enabled": state.tracking_enabled,
             "camera_iso": state.camera_iso,
             "camera_shutter": state.camera_shutter,
@@ -489,7 +520,7 @@ def execute_goto(req: GoToRequest):
 
 @app.post("/api/mount/slew")
 def execute_slew(req: SlewRequest):
-    step_delta = 0.5 * req.speed
+    step_delta = req.speed if req.speed < 1.0 else 0.5 * req.speed
     with state.lock:
         if req.direction.upper() == "+ALT":
             state.current_alt = min(90.0, state.current_alt + step_delta)
@@ -500,7 +531,7 @@ def execute_slew(req: SlewRequest):
         elif req.direction.upper() == "-AZ":
             state.current_az = (state.current_az - step_delta) % 360.0
 
-    packet = f"MANUAL:DIR:{req.direction.upper()}:SPEED:{req.speed:.1f}:TARGET_ALT:{state.current_alt:.4f}:TARGET_AZ:{state.current_az:.4f}"
+    packet = f"MANUAL:DIR:{req.direction.upper()}:SPEED:{req.speed:.4f}:TARGET_ALT:{state.current_alt:.4f}:TARGET_AZ:{state.current_az:.4f}"
     res = send_esp32_packet(packet)
 
     return {
@@ -534,6 +565,7 @@ def execute_multi_mode_calibration(req: MultiModeCalibrateRequest):
     target_alt = 0.0
     target_az = 0.0
     description = ""
+    cal_target_name = "Uncalibrated"
 
     if cal_mode == "OBJECT":
         obj_name = req.object_name or "Selected Celestial Object"
@@ -545,6 +577,7 @@ def execute_multi_mode_calibration(req: MultiModeCalibrateRequest):
             target_alt = search_res["altitude"]
             target_az = search_res["azimuth"]
         
+        cal_target_name = obj_name
         description = f"Aligned to Star/Object [{obj_name}] (Alt {target_alt:.2f}°, Az {target_az:.2f}°)"
         packet = f"CALIBRATE:OBJECT:NAME:{obj_name}:ALT:{target_alt:.4f}:AZ:{target_az:.4f}"
 
@@ -556,12 +589,14 @@ def execute_multi_mode_calibration(req: MultiModeCalibrateRequest):
         target_az = cardinal_az_map.get(heading, 0.0)
         target_alt = 0.0 if elevation == "HORIZON" else 90.0
 
+        cal_target_name = f"Cardinal {heading} ({elevation})"
         description = f"Aligned to Cardinal Heading [{heading}] ({target_az}°) & Elevation [{elevation}] ({target_alt}°)"
         packet = f"CALIBRATE:CARDINAL:DIR:{heading}:ALT:{target_alt:.4f}:AZ:{target_az:.4f}"
 
     elif cal_mode == "MANUAL":
         target_alt = req.alt if req.alt is not None else 0.0
         target_az = req.az if req.az is not None else 0.0
+        cal_target_name = f"Manual (Alt {target_alt:.2f}°, Az {target_az:.2f}°)"
         description = f"Aligned to Direct Manual Entry (Alt {target_alt:.2f}°, Az {target_az:.2f}°)"
         packet = f"CALIBRATE:MANUAL:ALT:{target_alt:.4f}:AZ:{target_az:.4f}"
 
@@ -575,10 +610,12 @@ def execute_multi_mode_calibration(req: MultiModeCalibrateRequest):
         state.current_az = target_az
         state.is_calibrated = True
         state.calibration_mode = cal_mode
+        state.calibrated_target_name = cal_target_name
 
     return {
         "status": "success",
         "mode": cal_mode,
+        "calibrated_target_name": cal_target_name,
         "description": description,
         "packet_sent": packet,
         "response": res,

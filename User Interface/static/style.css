@@ -237,7 +237,7 @@ body.tactical-theme {
 
 .skymap-container-layout {
     display: grid;
-    grid-template-columns: 1fr 340px;
+    grid-template-columns: 1fr 380px;
     gap: 20px;
 }
 
@@ -267,18 +267,6 @@ body.tactical-theme {
 
 #skymap-canvas:active {
     cursor: grabbing;
-}
-
-#stellarium-iframe {
-    width: 100%;
-    height: 100%;
-    min-height: 520px;
-    border: none;
-    background: #000;
-}
-
-#stellarium-iframe.hidden {
-    display: none;
 }
 
 .skymap-overlay-controls {
@@ -1031,3 +1019,92 @@ body.tactical-theme {
         text-align: center;
     }
 }
+
+/* --------------------------------------------------------------------------
+   Autocompletion & Unified Target Dropdown
+   -------------------------------------------------------------------------- */
+.relative-container {
+    position: relative;
+}
+
+.search-input-wrapper {
+    position: relative;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #0d0d0d;
+    border: 1px solid var(--border-crimson);
+    border-radius: 4px;
+    max-height: 230px;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.95);
+}
+
+.autocomplete-dropdown.hidden {
+    display: none;
+}
+
+.autocomplete-item {
+    padding: 9px 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #200808;
+    font-size: 0.85rem;
+    color: var(--text-primary-red);
+    transition: background 0.15s ease;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover, .autocomplete-item.selected {
+    background: #2a0a0a;
+    color: #ffffff;
+}
+
+.autocomplete-item .item-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.autocomplete-item .item-type {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    background: #240707;
+    border: 1px solid var(--border-dark-red);
+    border-radius: 3px;
+    color: var(--text-muted-red);
+    text-transform: uppercase;
+}
+
+.autocomplete-item .item-coords {
+    font-size: 0.75rem;
+    color: #ff8888;
+}
+
+.active-target-badge {
+    background: #140505;
+    border: 1px solid var(--border-crimson);
+    padding: 10px 14px;
+    border-radius: 4px;
+    color: var(--text-bright-red);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    box-shadow: inset 0 0 8px rgba(220, 38, 38, 0.2);
+}
+
