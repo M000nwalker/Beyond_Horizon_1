@@ -165,6 +165,8 @@ body.tactical-theme {
     display: flex;
     flex-direction: column;
     transition: border-color 0.3s ease;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .panel-card:hover {
@@ -449,6 +451,10 @@ body.tactical-theme {
     margin-top: 8px;
 }
 
+.margin-top-4 {
+    margin-top: 4px;
+}
+
 /* --------------------------------------------------------------------------
    Form & Input Components
    -------------------------------------------------------------------------- */
@@ -456,12 +462,16 @@ body.tactical-theme {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
 }
 
 .input-group label {
     font-size: 0.8rem;
     color: var(--text-muted-red);
     letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .tactical-input {
@@ -474,6 +484,8 @@ body.tactical-theme {
     border-radius: 4px;
     outline: none;
     transition: all 0.2s ease;
+    width: 100%;
+    min-width: 0;
 }
 
 .tactical-input:focus {
@@ -765,28 +777,29 @@ body.tactical-theme {
    -------------------------------------------------------------------------- */
 .speed-selector-row {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    gap: 6px;
     margin-bottom: 8px;
+    width: 100%;
 }
 
 .dpad-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 62px);
     gap: 8px;
-    margin: 10px auto;
-    max-width: 280px;
+    margin: 12px auto;
+    max-width: 300px;
+    width: 100%;
 }
 
-.dpad-middle-row {
-    display: flex;
-    gap: 8px;
-    width: 100%;
-    justify-content: center;
+.dpad-spacer {
+    visibility: hidden;
 }
 
 .dpad-btn {
+    width: 100%;
+    height: 100%;
     background-color: var(--bg-card);
     border: 1px solid var(--border-crimson);
     color: var(--text-bright-red);
@@ -810,19 +823,7 @@ body.tactical-theme {
     transform: scale(0.95);
 }
 
-.dpad-up, .dpad-down {
-    width: 90px;
-    height: 60px;
-}
-
-.dpad-left, .dpad-right {
-    width: 80px;
-    height: 70px;
-}
-
 .dpad-center {
-    width: 90px;
-    height: 70px;
     background: #2b0505;
     border-color: #ff1a1a;
 }

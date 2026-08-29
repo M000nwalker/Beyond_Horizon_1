@@ -1,7 +1,7 @@
 """
 Alt-Azimuth Telescope Mount Central Hub Backend
-FastAPI server coordinating Stellarium HTTP API, ESP32 Serial Motor Controller, OpenCV Simulated DSLR Camera,
-Interactive Pannable Sky Map, Degree-Based Motor Commands, and Real-Time Active Sidereal Target Tracking.
+FastAPI server coordinating Stellarium HTTP API, LAN HTTP Target Transmitter,
+Interactive Pannable Sky Map, Degree Telemetry, and Real-Time Active Sidereal Target Tracking.
 """
 
 import asyncio
@@ -12,20 +12,16 @@ import time
 import threading
 from typing import Optional, List
 
-import cv2
-import numpy as np
 import requests
-import serial
-import serial.tools.list_ports
 import uvicorn
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # Initialize FastAPI App
-app = FastAPI(title="Telescope Mount Control System", version="1.2.0")
+app = FastAPI(title="Telescope Mount Control System", version="2.0.0")
 
 # Enable CORS for local and network access
 app.add_middleware(
@@ -43,18 +39,15 @@ class SystemState:
         self.stellarium_url = "http://localhost:8090"
         self.stellarium_connected = False
 
-        # ESP32 Serial Controller state
-        self.esp32_port = "COM3"
-        self.esp32_baud = 115200
-        self.esp32_connected = False
-        self.serial_inst: Optional[serial.Serial] = None
+        # LAN Target HTTP Request configuration
+        self.lan_target_url = "http://10.172.197.224/target"
 
-        # Telescope Telemetry in Explicit Degrees (No step assumptions)
+        # Telescope Telemetry in Explicit Degrees
         self.current_alt = 0.0
         self.current_az = 0.0
-        self.target_alt = 58.4
-        self.target_az = 142.8
-        self.target_name = "Jupiter"
+        self.target_alt = 0.0
+        self.target_az = 0.0
+        self.target_name = "None"
         self.is_calibrated = False
         self.calibration_mode = "NONE"
         self.calibrated_target_name = "Uncalibrated"
@@ -64,23 +57,9 @@ class SystemState:
         self.tracking_task: Optional[asyncio.Task] = None
         self.last_track_time = time.time()
 
-        # Camera & Live View State
-        self.camera_connected = False
-        self.camera_iso = "800"
-        self.camera_shutter = "1/10"
-        
-        # Intervalometer State
-        self.intervalometer_running = False
-        self.intervalometer_current_frame = 0
-        self.intervalometer_total_frames = 0
-        self.intervalometer_exposure_sec = 1.0
-        self.intervalometer_delay_sec = 2.0
-        self.intervalometer_status_msg = "Idle"
-        self.intervalometer_task: Optional[asyncio.Task] = None
-
         # Observer Site Data
-        self.latitude = 23.810300
-        self.longitude = 90.412500
+        self.latitude = 23.8103
+        self.longitude = 90.4125
         self.elevation = 15.0
 
         # Lock for thread safety
@@ -118,51 +97,42 @@ class MultiModeCalibrateRequest(BaseModel):
 class TrackingToggleRequest(BaseModel):
     enable: bool
 
-class SerialConfigRequest(BaseModel):
-    port: str
-    baud: int = 115200
 
-class CameraConfigRequest(BaseModel):
-    iso: str
-    shutter: str
-
-class IntervalometerRequest(BaseModel):
-    frames: int
-    exposure: float
-    delay: float
-
-class CameraConnectRequest(BaseModel):
-    connect: bool = True
-
-
-def send_esp32_packet(packet: str) -> dict:
+def send_lan_target_request(delta_alt: float, delta_az: float, target_alt: float = 0.0, target_az: float = 0.0) -> dict:
     """
-    Transmits a packet over Serial to the ESP32.
-    If physical connection fails or port is closed, gracefully catches the exception,
-    prints the exact outgoing packet to terminal console, and logs mock response.
+    Transmits coordinate differences (Target - Current) to the LAN endpoint via HTTP GET request:
+    http://10.172.197.224/target?alt={delta_alt}&az={delta_az}
+    Format: alt and az are delta coordinates in degrees (Target - Current).
     """
-    packet_str = packet.strip() + "\n"
-    console_output = f"[ESP32 SERIAL TRANSMIT] >>> {packet_str.strip()}"
+    url = f"{state.lan_target_url}?alt={delta_alt:.3f}&az={delta_az:.3f}"
+    console_output = f"[LAN HTTP TRANSMIT] >>> GET {url}"
     print(console_output, flush=True)
 
-    with state.lock:
-        if state.esp32_connected and state.serial_inst and state.serial_inst.is_open:
-            try:
-                state.serial_inst.write(packet_str.encode('utf-8'))
-                return {"status": "sent", "mode": "hardware", "packet": packet_str.strip()}
-            except Exception as e:
-                print(f"[ESP32 ERROR] Serial write failed: {e}. Falling back to terminal log output.", flush=True)
-                state.esp32_connected = False
-                if state.serial_inst:
-                    try:
-                        state.serial_inst.close()
-                    except Exception:
-                        pass
-                state.serial_inst = None
-                return {"status": "failed_fallback_mock", "mode": "mock", "packet": packet_str.strip(), "error": str(e)}
-        else:
-            print(f"[ESP32 MOCK ACTIVE] Executed hardware simulation for packet: {packet_str.strip()}", flush=True)
-            return {"status": "mocked", "mode": "mock", "packet": packet_str.strip()}
+    try:
+        res = requests.get(url, timeout=2.5)
+        is_ok = 200 <= res.status_code < 300
+        return {
+            "status": "sent" if is_ok else "http_error",
+            "url": url,
+            "http_code": res.status_code,
+            "response_text": res.text[:200] if res.text else "",
+            "delta_alt": round(delta_alt, 3),
+            "delta_az": round(delta_az, 3),
+            "target_alt": round(target_alt, 3),
+            "target_az": round(target_az, 3)
+        }
+    except Exception as e:
+        print(f"[LAN HTTP TRANSMIT ERROR] Could not reach LAN target device ({e}). Request logged: {url}", flush=True)
+        return {
+            "status": "logged",
+            "url": url,
+            "error": str(e),
+            "delta_alt": round(delta_alt, 3),
+            "delta_az": round(delta_az, 3),
+            "target_alt": round(target_alt, 3),
+            "target_az": round(target_az, 3)
+        }
+
 
 
 def update_telemetry_simulation(new_alt: float, new_az: float):
@@ -172,25 +142,40 @@ def update_telemetry_simulation(new_alt: float, new_az: float):
 
 
 def get_live_object_coords(name: str):
-    """Retrieves live calculated Alt and Az for a target by name from sky motion model."""
+    """Retrieves live Alt and Az for a target by name directly from Stellarium HTTP API."""
     try:
-        skymap = get_skymap_objects()
-        for obj in skymap.get("objects", []):
-            if obj["name"].lower() == name.lower():
-                return obj["altitude"], obj["azimuth"]
-    except Exception:
-        pass
+        info_url = f"{state.stellarium_url}/api/objects/info"
+        r = requests.get(info_url, params={"name": name, "format": "json"}, timeout=2.0)
+        if r.status_code == 200:
+            info = r.json()
+            alt = info.get("altitude")
+            az = info.get("azimuth")
+            if alt is not None and az is not None:
+                return float(alt), float(az)
+    except Exception as e:
+        print(f"[STELLARIUM LIVE COORDS ERROR] Could not get coords for '{name}': {e}", flush=True)
     return None
 
 
 # REAL-TIME ACTIVE SIDEREAL TARGET TRACKING BACKGROUND ENGINE
 async def run_active_tracking_loop():
     """
-    Background 1Hz async tracking loop.
-    Calculates live celestial position drift for Alt-Az mount,
-    updates target and telescope positions 1:1, and transmits degree tracking packets over serial.
+    Accumulator-based sidereal tracking loop.
+
+    Sidereal drift is only ~0.004 deg/second. Sending that every second results in
+    the ESP printing '0.00' on its serial monitor. This accumulator pattern collects
+    drift across multiple ticks and only dispatches to the ESP once the accumulated
+    delta exceeds MIN_SEND_THRESHOLD degrees — ensuring every packet sent is legible.
     """
-    print("[ACTIVE TRACKING ENGINE] Started 1Hz Sidereal Tracking Task.", flush=True)
+    MIN_SEND_THRESHOLD = 0.001  # degrees — matches ESP 4-digit hardware minimum (0.001°)
+
+    acc_alt = 0.0
+    acc_az  = 0.0
+    new_target_alt = 0.0
+    new_target_az  = 0.0
+
+    print("[ACTIVE TRACKING ENGINE] Started Sidereal Tracking Task (accumulator mode).", flush=True)
+
     while state.tracking_enabled:
         await asyncio.sleep(1.0)
         if not state.tracking_enabled:
@@ -200,36 +185,50 @@ async def run_active_tracking_loop():
         dt = now - state.last_track_time
         state.last_track_time = now
 
-        az_drift_deg = 0.004167 * dt
+        az_drift_deg = 0.004167 * dt  # fallback sidereal Az rate ~15 arcsec/sec
 
-        # Safely read target name under lock before releasing for skymap call
         with state.lock:
             target_name_snapshot = state.target_name
 
-        # Query live sky coordinates OUTSIDE the lock to avoid holding lock
-        # during potentially slow skymap computation.
         live_coords = get_live_object_coords(target_name_snapshot)
 
-        # Initialize before lock block so variables are in scope after with-block
-        should_send = False
-        packet = ""
+        tick_delta_alt = 0.0
+        tick_delta_az  = 0.0
 
         with state.lock:
             if live_coords:
-                state.target_alt, state.target_az = live_coords[0], live_coords[1]
+                new_target_alt = live_coords[0]
+                new_target_az  = live_coords[1]
             else:
-                # Fallback: apply basic azimuthal drift if target not in sky database
-                state.target_az = (state.target_az + az_drift_deg) % 360.0
+                new_target_alt = state.target_alt
+                new_target_az  = (state.target_az + az_drift_deg) % 360.0
 
-            # Active tracking locks mount position to target coordinates exactly
-            state.current_alt = state.target_alt
-            state.current_az  = state.target_az
-            packet = f"TRACK:ALT:{state.current_alt:.4f}:AZ:{state.current_az:.4f}:DRIFT_AZ:{az_drift_deg:.6f}"
-            should_send = True
+            # Delta = how much mount must move this tick
+            tick_delta_alt = new_target_alt - state.current_alt
+            raw_tick_az    = new_target_az  - state.current_az
+            tick_delta_az  = (raw_tick_az + 180.0) % 360.0 - 180.0
 
-        # Send packet outside the lock to avoid deadlock
-        if should_send:
-            send_esp32_packet(packet)
+            # Advance internal position registers
+            state.target_alt  = new_target_alt
+            state.target_az   = new_target_az
+            state.current_alt = new_target_alt
+            state.current_az  = new_target_az
+
+        # Add this tick to the accumulator
+        acc_alt += tick_delta_alt
+        acc_az  += tick_delta_az
+
+        print(f"[TRACKING TICK] tick=({tick_delta_alt:.4f}°, {tick_delta_az:.4f}°) acc=({acc_alt:.4f}°, {acc_az:.4f}°)", flush=True)
+
+        # Only fire LAN request when accumulated delta is large enough to matter
+        if abs(acc_alt) >= MIN_SEND_THRESHOLD or abs(acc_az) >= MIN_SEND_THRESHOLD:
+            send_alt = acc_alt
+            send_az  = acc_az
+            acc_alt  = 0.0
+            acc_az   = 0.0
+            print(f"[ACTIVE TRACKING] DISPATCH dAlt={send_alt:.3f}° dAz={send_az:.3f}°", flush=True)
+            send_lan_target_request(delta_alt=send_alt, delta_az=send_az,
+                                    target_alt=new_target_alt, target_az=new_target_az)
 
     print("[ACTIVE TRACKING ENGINE] Stopped Sidereal Tracking Task.", flush=True)
 
@@ -250,138 +249,324 @@ def get_stellarium_status():
         return {"connected": False, "error": str(e)}
 
 
-@app.get("/api/skymap/objects")
-def get_skymap_objects():
-    t = time.time()
-    sky_rotation_offset = (t / 240.0) % 360.0
+# Names of objects to query from Stellarium (curated list for sky map display)
+STELLARIUM_SKYMAP_OBJECTS = [
+    "Polaris", "Jupiter", "Mars", "Saturn", "Moon",
+    "M 31", "M 42",
+    "Sirius", "Vega", "Betelgeuse", "Arcturus", "Capella",
+    "Aldebaran", "Antares", "Spica"
+]
 
-    objects_db = [
-        {"name": "Polaris", "type": "Star", "ra": "02h 31m 49.1s", "dec": "+89° 15' 51\"", "base_alt": 23.8, "base_az": 0.5, "mag": 2.0},
-        {"name": "Jupiter", "type": "Planet", "ra": "02h 15m 12.0s", "dec": "+12° 30' 45\"", "base_alt": 58.4, "base_az": 142.8, "mag": -2.4},
-        {"name": "Mars", "type": "Planet", "ra": "05h 42m 00.0s", "dec": "+24° 15' 10\"", "base_alt": 35.2, "base_az": 210.5, "mag": 0.8},
-        {"name": "Saturn", "type": "Planet", "ra": "22h 10m 30.0s", "dec": "-11° 20' 05\"", "base_alt": 42.1, "base_az": 175.3, "mag": 0.6},
-        {"name": "Moon", "type": "Satellite", "ra": "14h 22m 05.0s", "dec": "-18° 40' 12\"", "base_alt": 31.6, "base_az": 128.4, "mag": -11.2},
-        {"name": "M31 (Andromeda)", "type": "Galaxy", "ra": "00h 42m 44.3s", "dec": "+41° 16' 09\"", "base_alt": 67.5, "base_az": 45.2, "mag": 3.4},
-        {"name": "M42 (Orion Nebula)", "type": "Nebula", "ra": "05h 35m 17.3s", "dec": "-05° 23' 28\"", "base_alt": 48.9, "base_az": 192.1, "mag": 4.0},
-        {"name": "Sirius", "type": "Star", "ra": "06h 45m 08.9s", "dec": "-16° 42' 58\"", "base_alt": 28.3, "base_az": 165.4, "mag": -1.46},
-        {"name": "Vega", "type": "Star", "ra": "18h 36m 56.3s", "dec": "+38° 47' 01\"", "base_alt": 72.1, "base_az": 280.5, "mag": 0.03},
-        {"name": "Betelgeuse", "type": "Star", "ra": "05h 55m 10.3s", "dec": "+07° 24' 25\"", "base_alt": 52.0, "base_az": 185.0, "mag": 0.50},
-        {"name": "Arcturus", "type": "Star", "ra": "14h 15m 39.7s", "dec": "+19° 10' 56\"", "base_alt": 61.2, "base_az": 240.1, "mag": -0.05},
-        {"name": "Capella", "type": "Star", "ra": "05h 16m 41.4s", "dec": "+45° 59' 53\"", "base_alt": 44.8, "base_az": 320.6, "mag": 0.08},
-        {"name": "Aldebaran", "type": "Star", "ra": "04h 35m 55.2s", "dec": "+16° 30' 33\"", "base_alt": 38.5, "base_az": 110.2, "mag": 0.85},
-        {"name": "Antares", "type": "Star", "ra": "16h 29m 24.4s", "dec": "-26° 25' 55\"", "base_alt": 18.2, "base_az": 205.8, "mag": 1.06},
-        {"name": "Spica", "type": "Star", "ra": "13h 25m 11.6s", "dec": "-11° 09' 41\"", "base_alt": 33.4, "base_az": 225.0, "mag": 0.98}
+# Display name mapping for objects whose Stellarium catalog name differs from display name
+STELLARIUM_DISPLAY_NAMES = {
+    "M 31": "M31 (Andromeda)",
+    "M 42": "M42 (Orion Nebula)"
+}
+
+
+def format_ra(ra_deg: float) -> str:
+    ra_norm = (float(ra_deg) % 360.0 + 360.0) % 360.0
+    ra_h = int(ra_norm / 15.0)
+    ra_m = int((ra_norm / 15.0 - ra_h) * 60)
+    ra_s = ((ra_norm / 15.0 - ra_h) * 60 - ra_m) * 60
+    return f"{ra_h:02d}h {ra_m:02d}m {ra_s:04.1f}s"
+
+def format_dec(dec_deg: float) -> str:
+    val = float(dec_deg)
+    sign = '-' if val < 0 else '+'
+    abs_val = abs(val)
+    d = int(abs_val)
+    m = int((abs_val - d) * 60)
+    s = ((abs_val - d) * 60 - m) * 60
+    return f"{sign}{d:02d}° {m:02d}' {s:04.1f}\""
+
+
+STAR_CATALOG = [
+    # Circumpolar / North
+    {"name": "Polaris", "type": "Star", "ra": 37.95, "dec": 89.26, "mag": 1.98},
+    {"name": "Dubhe (Ursa Maj)", "type": "Star", "ra": 165.93, "dec": 61.75, "mag": 1.79},
+    {"name": "Alioth (Ursa Maj)", "type": "Star", "ra": 193.51, "dec": 55.96, "mag": 1.77},
+    {"name": "Capella", "type": "Star", "ra": 79.17, "dec": 45.99, "mag": 0.08},
+    {"name": "Schedar (Cassiopeia)", "type": "Star", "ra": 10.13, "dec": 56.54, "mag": 2.24},
+
+    # Summer / Autumn Quadrant
+    {"name": "Vega", "type": "Star", "ra": 279.23, "dec": 38.78, "mag": 0.03},
+    {"name": "Deneb", "type": "Star", "ra": 310.36, "dec": 45.28, "mag": 1.25},
+    {"name": "Altair", "type": "Star", "ra": 297.70, "dec": 8.87, "mag": 0.77},
+    {"name": "Antares", "type": "Star", "ra": 247.35, "dec": -26.43, "mag": 1.06},
+    {"name": "Enif (Pegasus)", "type": "Star", "ra": 326.05, "dec": 9.87, "mag": 2.38},
+    {"name": "Fomalhaut", "type": "Star", "ra": 344.41, "dec": -29.62, "mag": 1.17},
+
+    # Winter Quadrant
+    {"name": "Sirius", "type": "Star", "ra": 101.28, "dec": -16.71, "mag": -1.46},
+    {"name": "Betelgeuse", "type": "Star", "ra": 88.79, "dec": 7.41, "mag": 0.50},
+    {"name": "Rigel", "type": "Star", "ra": 78.63, "dec": -8.20, "mag": 0.18},
+    {"name": "Aldebaran", "type": "Star", "ra": 68.98, "dec": 16.51, "mag": 0.85},
+    {"name": "Procyon", "type": "Star", "ra": 114.83, "dec": 5.22, "mag": 0.34},
+    {"name": "Pollux", "type": "Star", "ra": 116.33, "dec": 28.03, "mag": 1.14},
+
+    # Spring Quadrant
+    {"name": "Arcturus", "type": "Star", "ra": 213.91, "dec": 19.18, "mag": -0.05},
+    {"name": "Spica", "type": "Star", "ra": 201.30, "dec": -11.16, "mag": 0.98},
+    {"name": "Regulus", "type": "Star", "ra": 152.09, "dec": 11.97, "mag": 1.36},
+
+    # Deep Sky Objects
+    {"name": "M31 (Andromeda Galaxy)", "type": "Galaxy", "ra": 10.68, "dec": 41.27, "mag": 3.44},
+    {"name": "M42 (Orion Nebula)", "type": "Nebula", "ra": 83.82, "dec": -5.39, "mag": 4.0},
+    {"name": "M45 (Pleiades)", "type": "Cluster", "ra": 56.87, "dec": 24.11, "mag": 1.60}
+]
+
+def get_dynamic_solar_system_objects(t: float) -> List[dict]:
+    d = (t - 946728000.0) / 86400.0
+    jup_lon = (34.0 + 0.0831 * d) % 360.0
+    sat_lon = (345.0 + 0.0334 * d) % 360.0
+    mars_lon = (65.0 + 0.524 * d) % 360.0
+    moon_lon = (180.0 + 13.176 * d) % 360.0
+
+    eps = math.radians(23.44)
+    bodies = [
+        {"name": "Jupiter", "type": "Planet", "lon": jup_lon, "lat": 1.3, "mag": -2.2},
+        {"name": "Saturn", "type": "Planet", "lon": sat_lon, "lat": -2.5, "mag": 0.7},
+        {"name": "Mars", "type": "Planet", "lon": mars_lon, "lat": 1.8, "mag": 0.5},
+        {"name": "Moon", "type": "Satellite", "lon": moon_lon, "lat": 5.1, "mag": -11.0}
     ]
 
-    response_list = []
-    for item in objects_db:
-        # Simulate realistic sky motion: az rotates ~15 deg/hr, alt oscillates
-        # Objects appear to rise/transit/set across the sky
-        az_shift = sky_rotation_offset
-        current_az = (item["base_az"] + az_shift) % 360.0
-        # Altitude simulation: sinusoidal arc peaking at transit (south meridian)
-        # Objects near az=180 are near transit; offset by how far they've rotated
-        phase = (az_shift % 360.0) / 360.0  # 0..1 over one full sky rotation
-        alt_mod = item["base_alt"] + 8.0 * math.sin(phase * 2 * math.pi)
-        current_alt = max(0.0, min(85.0, alt_mod))
-        
-        response_list.append({
+    out = []
+    for b in bodies:
+        lam = math.radians(b["lon"])
+        bet = math.radians(b["lat"])
+        sin_dec = math.sin(bet) * math.cos(eps) + math.cos(bet) * math.sin(eps) * math.sin(lam)
+        dec_rad = math.asin(max(-1.0, min(1.0, sin_dec)))
+
+        y = math.sin(lam) * math.cos(eps) - math.tan(bet) * math.sin(eps)
+        x = math.cos(lam)
+        ra_rad = math.atan2(y, x)
+        ra_deg = (math.degrees(ra_rad) + 360.0) % 360.0
+        dec_deg = math.degrees(dec_rad)
+
+        out.append({
+            "name": b["name"],
+            "type": b["type"],
+            "ra": ra_deg,
+            "dec": dec_deg,
+            "mag": b["mag"]
+        })
+    return out
+
+def calculate_catalog_positions(lat_deg: float, lon_deg: float) -> List[dict]:
+    t = time.time()
+    d = (t - 946728000.0) / 86400.0
+    lst = (280.46061837 + 360.98564736629 * d + lon_deg) % 360.0
+
+    results = []
+    lat_rad = math.radians(lat_deg)
+
+    all_bodies = STAR_CATALOG + get_dynamic_solar_system_objects(t)
+
+    for item in all_bodies:
+        ra_deg = item["ra"]
+        dec_deg = item["dec"]
+
+        ha = (lst - ra_deg + 360.0) % 360.0
+        ha_rad = math.radians(ha)
+        dec_rad = math.radians(dec_deg)
+
+        sin_alt = math.sin(dec_rad) * math.sin(lat_rad) + math.cos(dec_rad) * math.cos(lat_rad) * math.cos(ha_rad)
+        alt_rad = math.asin(max(-1.0, min(1.0, sin_alt)))
+        alt_deg = math.degrees(alt_rad)
+
+        cos_az = (math.sin(dec_rad) - math.sin(lat_rad) * sin_alt) / (math.cos(lat_rad) * math.cos(alt_rad) + 1e-9)
+        cos_az = max(-1.0, min(1.0, cos_az))
+        az_deg = math.degrees(math.acos(cos_az))
+        if math.sin(ha_rad) > 0:
+            az_deg = 360.0 - az_deg
+
+        results.append({
             "name": item["name"],
             "type": item["type"],
-            "ra_str": item["ra"],
-            "dec_str": item["dec"],
-            "altitude": round(current_alt, 4),
-            "azimuth": round(current_az, 4),
+            "ra_str": format_ra(ra_deg),
+            "dec_str": format_dec(dec_deg),
+            "altitude": round(alt_deg, 3),
+            "azimuth": round(az_deg, 3),
             "magnitude": item["mag"]
         })
+    return results
 
+
+@app.get("/api/skymap/objects")
+def get_skymap_objects():
+    """Queries Stellarium HTTP API for live positions of sky map objects.
+    Falls back to LST-calculated celestial catalog positions if Stellarium is offline."""
+    t = time.time()
+
+    if not state.stellarium_connected:
+        try:
+            r = requests.get(f"{state.stellarium_url}/api/main/status", timeout=1.2)
+            if r.status_code == 200:
+                state.stellarium_connected = True
+        except Exception:
+            state.stellarium_connected = False
+
+    if state.stellarium_connected:
+        response_list = []
+        for obj_name in STELLARIUM_SKYMAP_OBJECTS:
+            try:
+                info_url = f"{state.stellarium_url}/api/objects/info"
+                r = requests.get(info_url, params={"name": obj_name, "format": "json"}, timeout=1.5)
+                if r.status_code == 200:
+                    info = r.json()
+                    alt = info.get("altitude")
+                    az = info.get("azimuth")
+                    ra = info.get("ra", 0.0)
+                    dec = info.get("dec", 0.0)
+                    mag = info.get("vmag", info.get("mag", 0.0))
+                    obj_type = info.get("object-type", info.get("type", "Celestial Body"))
+                    display_name = info.get("localized-name", STELLARIUM_DISPLAY_NAMES.get(obj_name, obj_name))
+
+                    if alt is not None and az is not None:
+                        response_list.append({
+                            "name": display_name,
+                            "type": obj_type,
+                            "ra_str": format_ra(ra),
+                            "dec_str": format_dec(dec),
+                            "altitude": round(float(alt), 3),
+                            "azimuth": round(float(az), 3),
+                            "magnitude": round(float(mag), 3)
+                        })
+            except Exception:
+                pass
+
+        if response_list:
+            return {
+                "timestamp": t,
+                "source": "stellarium_live",
+                "observer": {"latitude": state.latitude, "longitude": state.longitude, "elevation": state.elevation},
+                "telescope_reticle": {"altitude": round(state.current_alt, 3), "azimuth": round(state.current_az, 3)},
+                "target_reticle": {"altitude": round(state.target_alt, 3), "azimuth": round(state.target_az, 3)},
+                "objects": response_list
+            }
+
+    # Fallback to local astronomical LST calculation engine
+    catalog_objects = calculate_catalog_positions(state.latitude, state.longitude)
     return {
         "timestamp": t,
+        "source": "lst_engine_fallback",
         "observer": {"latitude": state.latitude, "longitude": state.longitude, "elevation": state.elevation},
-        "telescope_reticle": {"altitude": round(state.current_alt, 4), "azimuth": round(state.current_az, 4)},
-        "target_reticle": {"altitude": round(state.target_alt, 4), "azimuth": round(state.target_az, 4)},
-        "objects": response_list
+        "telescope_reticle": {"altitude": round(state.current_alt, 3), "azimuth": round(state.current_az, 3)},
+        "target_reticle": {"altitude": round(state.target_alt, 3), "azimuth": round(state.target_az, 3)},
+        "objects": catalog_objects
     }
 
 
 @app.post("/api/stellarium/search")
 def search_stellarium_target(req: TargetSearchRequest):
+    """Searches Stellarium for a target object. NO fallback — returns error if Stellarium unavailable."""
     query = req.query.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Search query cannot be empty")
 
-    if state.stellarium_connected:
+    # Direct coordinate search parsing (e.g., "41.2760, 107.4875" or "41.2760 107.4875")
+    import re
+    coord_match = re.match(r'^(?:alt[:\s]*)?(-?\d+(?:\.\d+)?)[,\s]+(?:az[:\s]*)?(-?\d+(?:\.\d+)?)$', query, re.IGNORECASE)
+    if coord_match:
         try:
-            find_url = f"{state.stellarium_url}/api/objects/find"
-            r_find = requests.get(find_url, params={"str": query}, timeout=2.0)
-            if r_find.status_code == 200:
-                find_results = r_find.json()
-                if find_results:
-                    target_name = find_results[0] if isinstance(find_results, list) else query
-                    info_url = f"{state.stellarium_url}/api/objects/info"
-                    r_info = requests.get(info_url, params={"name": target_name, "format": "json"}, timeout=2.0)
-                    if r_info.status_code == 200:
-                        info = r_info.json()
-                        ra = info.get("ra", 0.0)
-                        dec = info.get("dec", 0.0)
-                        alt = info.get("altitude", info.get("altitudeGeocentric", 45.0))
-                        az = info.get("azimuth", info.get("azimuthGeocentric", 180.0))
-                        mag = info.get("vmag", info.get("mag", 0.0))
-                        
-                        ra_h = int(ra / 15.0)
-                        ra_m = int((ra / 15.0 - ra_h) * 60)
-                        ra_s = ((ra / 15.0 - ra_h) * 60 - ra_m) * 60
-                        
-                        dec_d = int(dec)
-                        dec_m = int(abs(dec - dec_d) * 60)
-                        dec_s = (abs(dec - dec_d) * 60 - dec_m) * 60
-
-                        return {
-                            "found": True,
-                            "name": info.get("localized-name", target_name),
-                            "type": info.get("type", "Celestial Body"),
-                            "ra_str": f"{ra_h:02d}h {ra_m:02d}m {ra_s:04.1f}s",
-                            "dec_str": f"{dec_d:+03d}° {dec_m:02d}' {dec_s:04.1f}\"",
-                            "ra_deg": float(ra),
-                            "dec_deg": float(dec),
-                            "altitude": float(alt),
-                            "azimuth": float(az),
-                            "magnitude": float(mag),
-                            "source": "stellarium_live"
-                        }
-        except Exception as e:
-            print(f"[STELLARIUM QUERY WARNING] Query to Stellarium failed: {e}. Generating simulated object data.", flush=True)
-
-    skymap_data = get_skymap_objects()
-    for obj in skymap_data["objects"]:
-        if query.lower() in obj["name"].lower():
+            parsed_alt = float(coord_match.group(1))
+            parsed_az = float(coord_match.group(2))
             return {
                 "found": True,
-                "name": obj["name"],
-                "type": obj["type"],
-                "ra_str": obj["ra_str"],
-                "dec_str": obj["dec_str"],
-                "altitude": obj["altitude"],
-                "azimuth": obj["azimuth"],
-                "magnitude": obj["magnitude"],
-                "source": "local_skymap_db"
+                "name": f"Coord ({parsed_alt:.4f}°, {parsed_az:.4f}°)",
+                "type": "Direct Coordinates",
+                "ra_str": "--",
+                "dec_str": "--",
+                "ra_deg": 0.0,
+                "dec_deg": 0.0,
+                "altitude": round(parsed_alt, 4),
+                "azimuth": round(parsed_az, 4),
+                "magnitude": 0.0,
+                "source": "coordinate_input"
+            }
+        except ValueError:
+            pass
+
+    if not state.stellarium_connected:
+        # Try a quick connection check
+        try:
+            r = requests.get(f"{state.stellarium_url}/api/main/status", timeout=1.5)
+            if r.status_code == 200:
+                state.stellarium_connected = True
+            else:
+                return {
+                    "found": False,
+                    "error": f"Stellarium not connected (HTTP {r.status_code}). Start Stellarium with Remote Control plugin on port 8090."
+                }
+        except Exception as e:
+            return {
+                "found": False,
+                "error": f"Cannot reach Stellarium at {state.stellarium_url}: {e}"
             }
 
-    hash_val = sum(ord(c) for c in query)
-    sim_alt = float((hash_val * 7) % 85 + 5)
-    sim_az = float((hash_val * 13) % 360)
-    
-    return {
-        "found": True,
-        "name": query.capitalize(),
-        "type": "Custom Target",
-        "ra_str": f"{(hash_val % 24):02d}h {((hash_val*3)%60):02d}m 15.4s",
-        "dec_str": f"{((hash_val%180)-90):+03d}° {((hash_val*7)%60):02d}' 30.0\"",
-        "altitude": sim_alt,
-        "azimuth": sim_az,
-        "magnitude": 5.5,
-        "source": "simulated_hash"
-    }
+    try:
+        find_url = f"{state.stellarium_url}/api/objects/find"
+        r_find = requests.get(find_url, params={"str": query}, timeout=2.0)
+        if r_find.status_code != 200:
+            return {
+                "found": False,
+                "error": f"Stellarium find API returned HTTP {r_find.status_code} for query '{query}'."
+            }
+
+        find_results = r_find.json()
+        if not find_results:
+            return {
+                "found": False,
+                "error": f"No object matching '{query}' found in Stellarium's database."
+            }
+
+        target_name = find_results[0] if isinstance(find_results, list) else query
+        info_url = f"{state.stellarium_url}/api/objects/info"
+        r_info = requests.get(info_url, params={"name": target_name, "format": "json"}, timeout=2.0)
+        if r_info.status_code != 200:
+            return {
+                "found": False,
+                "error": f"Stellarium info API returned HTTP {r_info.status_code} for object '{target_name}'."
+            }
+
+        info = r_info.json()
+        ra = info.get("ra")
+        dec = info.get("dec")
+        alt = info.get("altitude")
+        az = info.get("azimuth")
+        mag = info.get("vmag", info.get("mag", 0.0))
+
+        if alt is None or az is None:
+            return {
+                "found": False,
+                "error": f"Stellarium returned incomplete data for '{target_name}' (missing altitude/azimuth)."
+            }
+
+        ra_val = float(ra) if ra is not None else 0.0
+        dec_val = float(dec) if dec is not None else 0.0
+
+        return {
+            "found": True,
+            "name": info.get("localized-name", target_name),
+            "type": info.get("object-type", info.get("type", "Celestial Body")),
+            "ra_str": format_ra(ra_val),
+            "dec_str": format_dec(dec_val),
+            "ra_deg": round(ra_val, 4),
+            "dec_deg": round(dec_val, 4),
+            "altitude": round(float(alt), 4),
+            "azimuth": round(float(az), 4),
+            "magnitude": round(float(mag), 4),
+            "source": "stellarium_live"
+        }
+
+    except Exception as e:
+        print(f"[STELLARIUM SEARCH ERROR] Query for '{query}' failed: {e}", flush=True)
+        state.stellarium_connected = False
+        return {
+            "found": False,
+            "error": f"Stellarium query failed: {e}"
+        }
 
 
 @app.post("/api/stellarium/location")
@@ -415,103 +600,55 @@ def sync_location_to_stellarium(req: LocationSyncRequest):
     return results
 
 
-# HARDWARE & SERIAL CONTROL ENDPOINTS
-@app.get("/api/hardware/ports")
-def get_available_ports():
-    ports = [port.device for port in serial.tools.list_ports.comports()]
-    if not ports:
-        ports = ["COM1", "COM3", "COM4", "/dev/ttyUSB0", "/dev/ttyACM0"]
-    return {"ports": ports}
-
-
-@app.post("/api/hardware/esp32/connect")
-def connect_esp32(req: SerialConfigRequest):
-    with state.lock:
-        state.esp32_port = req.port
-        state.esp32_baud = req.baud
-        try:
-            state.serial_inst = serial.Serial(req.port, req.baud, timeout=1.0)
-            state.esp32_connected = True
-            print(f"[ESP32 CONNECTED] Successfully opened serial port {req.port} at {req.baud} baud.", flush=True)
-            return {"connected": True, "port": req.port, "baud": req.baud, "mode": "hardware"}
-        except Exception as e:
-            state.esp32_connected = False
-            state.serial_inst = None
-            print(f"[ESP32 CONNECT FALLBACK] Port {req.port} unavailable: {e}. Enabling Mock Hardware Serial mode.", flush=True)
-            return {
-                "connected": True,
-                "port": req.port,
-                "baud": req.baud,
-                "mode": "mock",
-                "message": f"Physical port unavailable ({e}). Outgoing commands will be printed to terminal console."
-            }
-
-
-@app.post("/api/hardware/esp32/disconnect")
-def disconnect_esp32():
-    with state.lock:
-        if state.serial_inst and state.serial_inst.is_open:
-            try:
-                state.serial_inst.close()
-            except Exception:
-                pass
-        state.serial_inst = None
-        state.esp32_connected = False
-        print("[ESP32 DISCONNECTED] Serial port closed.", flush=True)
-        return {"connected": False}
-
-
+# HARDWARE & TELEMETRY STATUS ENDPOINT
 @app.get("/api/hardware/status")
 def get_hardware_status():
     with state.lock:
-        if state.tracking_enabled:
-            state.current_alt = state.target_alt
-            state.current_az = state.target_az
-
-        delta_alt = round(state.target_alt - state.current_alt, 4)
+        # NOTE: Do NOT snap current = target here.
+        # The tracking loop manages current position correctly.
+        # Snapping here destroys delta information and causes all-zero ESP transmissions.
+        delta_alt = round(state.target_alt - state.current_alt, 3)
         raw_delta_az = state.target_az - state.current_az
-        delta_az = round((raw_delta_az + 180.0) % 360.0 - 180.0, 4)
+        delta_az = round((raw_delta_az + 180.0) % 360.0 - 180.0, 3)
 
         return {
             "stellarium_connected": state.stellarium_connected,
-            "esp32_connected": state.esp32_connected,
-            "camera_connected": state.camera_connected,
-            "current_alt_deg": round(state.current_alt, 4),
-            "current_az_deg": round(state.current_az, 4),
-            "target_alt_deg": round(state.target_alt, 4),
-            "target_az_deg": round(state.target_az, 4),
+            "lan_target_url": state.lan_target_url,
+            "current_alt_deg": round(state.current_alt, 3),
+            "current_az_deg": round(state.current_az, 3),
+            "target_alt_deg": round(state.target_alt, 3),
+            "target_az_deg": round(state.target_az, 3),
             "required_delta_alt_deg": delta_alt,
             "required_delta_az_deg": delta_az,
             "target_name": state.target_name,
             "is_calibrated": state.is_calibrated,
             "calibration_mode": state.calibration_mode,
             "calibrated_target_name": state.calibrated_target_name,
-            "tracking_enabled": state.tracking_enabled,
-            "camera_iso": state.camera_iso,
-            "camera_shutter": state.camera_shutter,
-            "intervalometer_running": state.intervalometer_running,
-            "intervalometer_status": state.intervalometer_status_msg,
-            "intervalometer_frame": f"{state.intervalometer_current_frame}/{state.intervalometer_total_frames}"
+            "tracking_enabled": state.tracking_enabled
         }
 
 
 # MOUNT MOTION, TRACKING & DEGREE-BASED CALIBRATION ENDPOINTS
 @app.post("/api/mount/goto")
 def execute_goto(req: GoToRequest):
-    packet = f"GOTO:ALT:{req.alt:.4f}:AZ:{req.az:.4f}"
-    res = send_esp32_packet(packet)
-    
     with state.lock:
+        delta_alt = req.alt - state.current_alt
+        raw_delta_az = req.az - state.current_az
+        delta_az = (raw_delta_az + 180.0) % 360.0 - 180.0
+
         state.target_alt = req.alt
         state.target_az = req.az
         state.target_name = req.target_name or "Target Object"
-    
-    update_telemetry_simulation(req.alt, req.az)
+        state.current_alt = req.alt
+        state.current_az = req.az
+
+    res = send_lan_target_request(delta_alt=delta_alt, delta_az=delta_az, target_alt=req.alt, target_az=req.az)
 
     return {
         "status": "success",
         "action": "GOTO",
-        "packet_sent": packet,
+        "delta_alt_deg": round(delta_alt, 3),
+        "delta_az_deg": round(delta_az, 3),
         "response": res,
         "new_alt_deg": req.alt,
         "new_az_deg": req.az
@@ -521,23 +658,37 @@ def execute_goto(req: GoToRequest):
 @app.post("/api/mount/slew")
 def execute_slew(req: SlewRequest):
     step_delta = req.speed if req.speed < 1.0 else 0.5 * req.speed
+    delta_alt = 0.0
+    delta_az = 0.0
+
     with state.lock:
-        if req.direction.upper() == "+ALT":
+        direction = req.direction.upper()
+        if direction == "+ALT":
+            delta_alt = step_delta
             state.current_alt = min(90.0, state.current_alt + step_delta)
-        elif req.direction.upper() == "-ALT":
+        elif direction == "-ALT":
+            delta_alt = -step_delta
             state.current_alt = max(-10.0, state.current_alt - step_delta)
-        elif req.direction.upper() == "+AZ":
+        elif direction == "+AZ":
+            delta_az = step_delta
             state.current_az = (state.current_az + step_delta) % 360.0
-        elif req.direction.upper() == "-AZ":
+        elif direction == "-AZ":
+            delta_az = -step_delta
             state.current_az = (state.current_az - step_delta) % 360.0
 
-    packet = f"MANUAL:DIR:{req.direction.upper()}:SPEED:{req.speed:.4f}:TARGET_ALT:{state.current_alt:.4f}:TARGET_AZ:{state.current_az:.4f}"
-    res = send_esp32_packet(packet)
+        state.target_alt = state.current_alt
+        state.target_az = state.current_az
+
+        curr_alt = state.current_alt
+        curr_az = state.current_az
+
+    res = send_lan_target_request(delta_alt=delta_alt, delta_az=delta_az, target_alt=curr_alt, target_az=curr_az)
 
     return {
         "status": "success",
         "action": "SLEW",
-        "packet_sent": packet,
+        "delta_alt_deg": round(delta_alt, 4),
+        "delta_az_deg": round(delta_az, 4),
         "response": res,
         "current_alt_deg": round(state.current_alt, 4),
         "current_az_deg": round(state.current_az, 4)
@@ -576,10 +727,9 @@ def execute_multi_mode_calibration(req: MultiModeCalibrateRequest):
             search_res = search_stellarium_target(TargetSearchRequest(query=obj_name))
             target_alt = search_res["altitude"]
             target_az = search_res["azimuth"]
-        
+
         cal_target_name = obj_name
-        description = f"Aligned to Star/Object [{obj_name}] (Alt {target_alt:.2f}°, Az {target_az:.2f}°)"
-        packet = f"CALIBRATE:OBJECT:NAME:{obj_name}:ALT:{target_alt:.4f}:AZ:{target_az:.4f}"
+        description = f"Aligned to Star/Object [{obj_name}] (Alt {target_alt:.3f}°, Az {target_az:.3f}°)"
 
     elif cal_mode == "CARDINAL":
         heading = (req.cardinal_dir or "NORTH").upper()
@@ -590,191 +740,42 @@ def execute_multi_mode_calibration(req: MultiModeCalibrateRequest):
         target_alt = 0.0 if elevation == "HORIZON" else 90.0
 
         cal_target_name = f"Cardinal {heading} ({elevation})"
-        description = f"Aligned to Cardinal Heading [{heading}] ({target_az}°) & Elevation [{elevation}] ({target_alt}°)"
-        packet = f"CALIBRATE:CARDINAL:DIR:{heading}:ALT:{target_alt:.4f}:AZ:{target_az:.4f}"
+        description = f"Aligned to Cardinal Heading [{heading}] ({target_az:.3f}°) & Elevation [{elevation}] ({target_alt:.3f}°)"
 
     elif cal_mode == "MANUAL":
         target_alt = req.alt if req.alt is not None else 0.0
         target_az = req.az if req.az is not None else 0.0
-        cal_target_name = f"Manual (Alt {target_alt:.2f}°, Az {target_az:.2f}°)"
-        description = f"Aligned to Direct Manual Entry (Alt {target_alt:.2f}°, Az {target_az:.2f}°)"
-        packet = f"CALIBRATE:MANUAL:ALT:{target_alt:.4f}:AZ:{target_az:.4f}"
+        cal_target_name = f"Manual (Alt {target_alt:.3f}°, Az {target_az:.3f})"
+        description = f"Aligned to Direct Manual Entry (Alt {target_alt:.3f}°, Az {target_az:.3f}°)"
 
     else:
         raise HTTPException(status_code=400, detail="Invalid calibration mode. Use 'OBJECT', 'CARDINAL', or 'MANUAL'")
 
-    res = send_esp32_packet(packet)
-
     with state.lock:
+        delta_alt = target_alt - state.current_alt
+        raw_delta_az = target_az - state.current_az
+        delta_az = (raw_delta_az + 180.0) % 360.0 - 180.0
+
         state.current_alt = target_alt
         state.current_az = target_az
+        state.target_alt = target_alt
+        state.target_az = target_az
         state.is_calibrated = True
         state.calibration_mode = cal_mode
         state.calibrated_target_name = cal_target_name
+
+    res = send_lan_target_request(delta_alt=delta_alt, delta_az=delta_az, target_alt=target_alt, target_az=target_az)
 
     return {
         "status": "success",
         "mode": cal_mode,
         "calibrated_target_name": cal_target_name,
         "description": description,
-        "packet_sent": packet,
+        "delta_alt_deg": round(delta_alt, 4),
+        "delta_az_deg": round(delta_az, 4),
         "response": res,
         "calibrated_alt_deg": round(target_alt, 4),
         "calibrated_az_deg": round(target_az, 4)
-    }
-
-
-# CAMERA & LIVE VIEW MOCK ENGINE
-@app.post("/api/camera/toggle")
-def toggle_camera(req: CameraConnectRequest):
-    enable = req.connect
-    with state.lock:
-        state.camera_connected = enable
-    print(f"[CAMERA STATUS] Camera connection set to: {enable}", flush=True)
-    return {"camera_connected": state.camera_connected}
-
-
-@app.post("/api/camera/config")
-def update_camera_config(req: CameraConfigRequest):
-    with state.lock:
-        state.camera_iso = req.iso
-        state.camera_shutter = req.shutter
-    print(f"[CAMERA CONFIG] Set ISO: {req.iso}, Shutter: {req.shutter}", flush=True)
-    return {"iso": req.iso, "shutter": req.shutter}
-
-
-def generate_dark_starfield_frame():
-    width, height = 640, 480
-    frame = np.full((height, width, 3), 10, dtype=np.uint8)
-
-    noise = np.random.randint(0, 18, (height, width, 3), dtype=np.uint8)
-    frame = cv2.add(frame, noise)
-
-    t = time.time()
-    np.random.seed(42)
-    num_stars = 70
-    star_x = np.random.randint(20, width - 20, size=num_stars)
-    star_y = np.random.randint(20, height - 20, size=num_stars)
-    star_mags = np.random.uniform(0.4, 1.0, size=num_stars)
-
-    for idx in range(num_stars):
-        brightness = int(255 * star_mags[idx] * (0.8 + 0.2 * math.sin(t * 3.0 + idx)))
-        color = (brightness, brightness, int(brightness * 0.9))
-        cv2.circle(frame, (star_x[idx], star_y[idx]), 1 if idx % 3 != 0 else 2, color, -1)
-
-    center_x, center_y = width // 2, height // 2
-    cv2.circle(frame, (center_x, center_y), 16, (40, 40, 80), -1)
-    cv2.circle(frame, (center_x, center_y), 8, (120, 160, 255), -1)
-    cv2.circle(frame, (center_x, center_y), 3, (255, 255, 255), -1)
-
-    reticle_color = (30, 30, 220)
-    cv2.line(frame, (center_x - 30, center_y), (center_x - 8, center_y), reticle_color, 1)
-    cv2.line(frame, (center_x + 8, center_y), (center_x + 30, center_y), reticle_color, 1)
-    cv2.line(frame, (center_x, center_y - 30), (center_x, center_y - 8), reticle_color, 1)
-    cv2.line(frame, (center_x, center_y + 8), (center_x, center_y + 30), reticle_color, 1)
-    cv2.circle(frame, (center_x, center_y), 22, reticle_color, 1)
-
-    hud_red = (40, 40, 240)
-    cv2.putText(frame, "CANON DSLR MOCK LIVE VIEW [USB]", (15, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, hud_red, 1, cv2.LINE_AA)
-    cv2.putText(frame, f"ISO: {state.camera_iso} | SHUTTER: {state.camera_shutter}", (15, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (100, 100, 255), 1, cv2.LINE_AA)
-    cv2.putText(frame, f"ALT: {state.current_alt:.2f} DEG | AZ: {state.current_az:.2f} DEG", (15, 465), cv2.FONT_HERSHEY_SIMPLEX, 0.45, hud_red, 1, cv2.LINE_AA)
-    cv2.putText(frame, time.strftime("%Y-%m-%d %H:%M:%S UTC"), (420, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (80, 80, 200), 1, cv2.LINE_AA)
-
-    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-    return buffer.tobytes()
-
-
-def generate_mjpeg_stream():
-    while True:
-        if state.camera_connected:
-            frame_bytes = generate_dark_starfield_frame()
-        else:
-            frame = np.full((480, 640, 3), 5, dtype=np.uint8)
-            cv2.putText(frame, "CAMERA DISCONNECTED", (180, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (20, 20, 180), 2, cv2.LINE_AA)
-            cv2.putText(frame, "Toggle connection switch in Hardware Panel to activate stream", (90, 275), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (60, 60, 140), 1, cv2.LINE_AA)
-            _, buffer = cv2.imencode('.jpg', frame)
-            frame_bytes = buffer.tobytes()
-
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        time.sleep(0.1)
-
-
-@app.get("/api/camera/liveview")
-def liveview_feed():
-    return StreamingResponse(generate_mjpeg_stream(), media_type="multipart/x-mixed-replace; boundary=frame")
-
-
-# ASYNC INTERVALOMETER SUITE
-async def run_intervalometer_task(frames: int, exposure: float, delay: float):
-    state.intervalometer_running = True
-    state.intervalometer_total_frames = frames
-    state.intervalometer_exposure_sec = exposure
-    state.intervalometer_delay_sec = delay
-
-    print(f"[INTERVALOMETER STARTED] Sequence: {frames} frames x {exposure}s exposure (delay {delay}s)", flush=True)
-
-    for f in range(1, frames + 1):
-        if not state.intervalometer_running:
-            state.intervalometer_status_msg = "Aborted by User"
-            print("[INTERVALOMETER] Sequence cancelled.", flush=True)
-            break
-
-        state.intervalometer_current_frame = f
-        state.intervalometer_status_msg = f"Exposing Frame {f}/{frames} ({exposure}s)"
-        print(f"[INTERVALOMETER] Exposing Frame {f}/{frames} for {exposure} seconds...", flush=True)
-
-        exp_remaining = exposure
-        while exp_remaining > 0 and state.intervalometer_running:
-            await asyncio.sleep(min(0.5, exp_remaining))
-            exp_remaining -= 0.5
-
-        if not state.intervalometer_running:
-            break
-
-        if f < frames:
-            state.intervalometer_status_msg = f"Delay between frames ({delay}s)"
-            print(f"[INTERVALOMETER] Inter-frame delay: {delay}s...", flush=True)
-            delay_remaining = delay
-            while delay_remaining > 0 and state.intervalometer_running:
-                await asyncio.sleep(min(0.5, delay_remaining))
-                delay_remaining -= 0.5
-
-    if state.intervalometer_running:
-        state.intervalometer_status_msg = f"Completed {frames} Frames Successfully!"
-        print(f"[INTERVALOMETER COMPLETED] All {frames} frames captured.", flush=True)
-
-    state.intervalometer_running = False
-
-
-@app.post("/api/camera/intervalometer/start")
-async def start_intervalometer(req: IntervalometerRequest, background_tasks: BackgroundTasks):
-    if state.intervalometer_running:
-        raise HTTPException(status_code=400, detail="Intervalometer is already running")
-    
-    state.intervalometer_current_frame = 0
-    state.intervalometer_running = True
-    asyncio.create_task(run_intervalometer_task(req.frames, req.exposure, req.delay))
-    return {"status": "started", "frames": req.frames, "exposure": req.exposure, "delay": req.delay}
-
-
-@app.post("/api/camera/intervalometer/stop")
-def stop_intervalometer():
-    state.intervalometer_running = False
-    state.intervalometer_status_msg = "Stopping Sequence..."
-    print("[INTERVALOMETER] Stop command received.", flush=True)
-    return {"status": "stopping"}
-
-
-@app.get("/api/camera/intervalometer/status")
-def get_intervalometer_status():
-    return {
-        "running": state.intervalometer_running,
-        "current_frame": state.intervalometer_current_frame,
-        "total_frames": state.intervalometer_total_frames,
-        "exposure_sec": state.intervalometer_exposure_sec,
-        "delay_sec": state.intervalometer_delay_sec,
-        "status_message": state.intervalometer_status_msg
     }
 
 
@@ -782,14 +783,7 @@ def get_intervalometer_status():
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-@app.get("/", response_class=HTMLResponse)
-def read_root():
-    index_path = os.path.join(static_dir, "index.html")
-    if os.path.exists(index_path):
-        with open(index_path, "r", encoding="utf-8") as f:
-            return f.read()
-    return HTMLResponse("<h2>Telescope Control Hub Backend Running. Static index.html not found.</h2>")
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="root_static")
 
 
 if __name__ == "__main__":
@@ -798,7 +792,7 @@ if __name__ == "__main__":
     print("==========================================================================")
     print("  Dashboard UI: http://localhost:8000")
     print("  Interactive Sky Map API: http://localhost:8000/api/skymap/objects")
-    print("  Live View Stream: http://localhost:8000/api/camera/liveview")
+    print("  LAN Target GET URL: http://10.172.197.224/target?alt={delta_alt}&az={delta_az}")
     print("  Stellarium API Target: http://localhost:8090")
     print("==========================================================================")
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
