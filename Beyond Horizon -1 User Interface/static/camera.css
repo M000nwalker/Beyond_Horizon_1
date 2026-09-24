@@ -1,0 +1,408 @@
+/* ==========================================================================
+   CANON EOS 60D CAMERA CONTROL DASHBOARD STYLESHEET
+   Tactical Dark Aesthetic & High Contrast Indicators
+   ========================================================================== */
+
+.camera-dashboard {
+    background-color: #080c14;
+    color: #e2e8f0;
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+/* System Back Navigation Button */
+.btn-nav-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 255, 204, 0.12);
+    color: #00ffcc;
+    border: 1px solid rgba(0, 255, 204, 0.4);
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+
+.btn-nav-back:hover {
+    background: rgba(0, 255, 204, 0.25);
+    border-color: #00ffcc;
+    box-shadow: 0 0 12px rgba(0, 255, 204, 0.4);
+    color: #ffffff;
+}
+
+.info-badge {
+    background: rgba(30, 41, 59, 0.7) !important;
+    border-color: rgba(148, 163, 184, 0.3) !important;
+    color: #94a3b8 !important;
+}
+
+/* Camera Grid Layout */
+.camera-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 20px;
+    padding: 20px;
+    max-width: 1700px;
+    margin: 0 auto;
+}
+
+@media (max-width: 1200px) {
+    .camera-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Panel Extensions */
+.camera-panel-liveview {
+    grid-column: span 1;
+}
+
+.camera-panel-settings {
+    grid-column: span 1;
+}
+
+.camera-panel-intervalometer {
+    grid-column: span 2;
+}
+
+@media (max-width: 1200px) {
+    .camera-panel-intervalometer {
+        grid-column: span 1;
+    }
+}
+
+/* Live View Viewport */
+.liveview-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.liveview-viewport {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000000;
+    border: 1px solid rgba(0, 255, 204, 0.3);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9);
+}
+
+.liveview-viewport img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.liveview-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(239, 68, 68, 0.85);
+    color: #ffffff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
+/* Live View Toolbar */
+.liveview-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.focus-control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.7);
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    flex-wrap: wrap;
+}
+
+.focus-val {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    color: #00ffcc;
+    padding: 0 8px;
+    min-width: 45px;
+    text-align: center;
+}
+
+.btn-shutter {
+    font-size: 1rem !important;
+    padding: 12px !important;
+    letter-spacing: 1px !important;
+}
+
+/* Header Pills */
+.tactical-pill {
+    background: rgba(30, 41, 59, 0.8);
+    color: #94a3b8;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tactical-pill:hover, .tactical-pill.active {
+    background: rgba(0, 255, 204, 0.2);
+    color: #00ffcc;
+    border-color: #00ffcc;
+    box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
+}
+
+/* Settings Grid */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-gap: 16px;
+}
+
+.setting-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.setting-item label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+}
+
+.tactical-select {
+    background: rgba(15, 23, 42, 0.9);
+    color: #00ffcc;
+    border: 1px solid rgba(0, 255, 204, 0.3);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.tactical-select:focus, .tactical-select:hover {
+    border-color: #00ffcc;
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+}
+
+.settings-action-row {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+}
+
+/* Intervalometer Panel */
+.intervalometer-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.interval-inputs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-gap: 16px;
+}
+
+.input-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.input-box label {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+}
+
+.status-tag {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+}
+
+.status-tag.idle {
+    background: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.4);
+}
+
+.status-tag.active {
+    background: rgba(0, 255, 204, 0.2);
+    color: #00ffcc;
+    border: 1px solid #00ffcc;
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.4);
+    animation: pulse 1.5s infinite;
+}
+
+.status-tag.paused {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+}
+
+/* Sequence Telemetry Box */
+.sequence-telemetry-box {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 12px;
+    background: rgba(30, 41, 59, 0.9);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 255, 204, 0.2);
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ffcc, #3b82f6);
+    box-shadow: 0 0 12px rgba(0, 255, 204, 0.6);
+    transition: width 0.3s ease;
+}
+
+.telemetry-stats-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.stat-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.stat-lbl {
+    font-size: 0.68rem;
+    color: #64748b;
+    letter-spacing: 0.5px;
+}
+
+.stat-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #00ffcc;
+}
+
+.interval-actions-row {
+    display: flex;
+    gap: 12px;
+}
+
+/* Gallery Section */
+.gallery-body {
+    min-height: 160px;
+}
+
+.gallery-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-gap: 16px;
+}
+
+.gallery-card {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(0, 255, 204, 0.2);
+    border-radius: 6px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.gallery-card:hover {
+    border-color: #00ffcc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 255, 204, 0.2);
+}
+
+.gallery-img-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+}
+
+.gallery-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-info {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.gallery-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gallery-meta {
+    font-size: 0.7rem;
+    color: #00ffcc;
+}
+
+.gallery-time {
+    font-size: 0.65rem;
+    color: #64748b;
+}
+
+.gallery-empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
