@@ -45,7 +45,7 @@ app.add_middleware(
 # Edit the ESP_IP variable below whenever your ESP device's IP address changes.
 # Every reference across Python, HTML, JS, and CSS will update dynamically from this single variable.
 # =============================================================================
-ESP_IP = "10.82.105.224"
+ESP_IP = "10.78.46.224"
 
 
 # Global State Container
@@ -945,9 +945,21 @@ if os.path.exists(static_dir):
             return HTMLResponse(content=content)
         raise HTTPException(status_code=404, detail="index.html not found")
 
-    # NOTE: Only mount /static for CSS/JS/images — do NOT mount / as StaticFiles
-    # because that would serve index.html raw (bypassing the ESP_IP substitution above).
+    @app.get("/camera.html", response_class=HTMLResponse)
+    def serve_camera():
+        cam_path = os.path.join(static_dir, "camera.html")
+        if os.path.exists(cam_path):
+            with open(cam_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return HTMLResponse(content=content)
+        raise HTTPException(status_code=404, detail="camera.html not found")
+
+    # Mount /static for explicit /static/... asset paths
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    # Mount / to serve relative root-level assets (style.css, app.js, camera.css, camera.js, etc.)
+    # Placed AFTER explicit GET routes so / and /index.html still use the dynamic handler above.
+    app.mount("/", StaticFiles(directory=static_dir), name="root_static")
 
 
 if __name__ == "__main__":
