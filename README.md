@@ -4,7 +4,7 @@
 
 ### *An Alt-Azimuth Computerized Telescope Mount*
 
-**Designed · Fabricated · Automated · Photographed — from the ground up**
+**Designed · Fabricated · Automated — from the ground up**
 
 ---
 
