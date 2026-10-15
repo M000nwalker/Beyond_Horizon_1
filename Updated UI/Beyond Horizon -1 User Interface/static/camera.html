@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canon EOS 60D - Camera Control Hub | Beyond Horizon</title>
+    <link rel="stylesheet" href="style.css?v=20260812">
+    <link rel="stylesheet" href="camera.css?v=20260905">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body class="tactical-theme camera-dashboard">
+    <!-- System Navigation & Top Header -->
+    <header class="app-header">
+        <div class="header-branding">
+            <div class="logo-icon">&#x1F4F7;</div>
+            <div class="title-group">
+                <h1>CANON EOS 60D</h1>
+                <span class="sub-title">INDEPENDENT USB CAMERA & INTERVALOMETER MODULE</span>
+            </div>
+        </div>
+
+        <div class="header-status-bar">
+            <a href="/" class="btn-nav-back" title="Return to Telescope Control Dashboard">
+                &#x25C0; TELESCOPE CONTROL HUB
+            </a>
+
+            <div class="status-badge" id="cam-status-badge">
+                <span class="status-dot connected"></span>
+                <span class="badge-label" id="cam-status-text">CAMERA: CANON 60D CONNECTED</span>
+            </div>
+
+            <div class="status-badge info-badge" id="cam-battery-badge">
+                <span class="badge-label" id="cam-battery-text">&#x1F50B; BATTERY: 88%</span>
+            </div>
+
+            <div class="status-badge info-badge" id="cam-storage-badge">
+                <span class="badge-label" id="cam-storage-text">&#x1F4BE; SD FREE: 52.9 GB</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Camera Grid -->
+    <main class="dashboard-grid camera-grid">
+        
+        <!-- PANEL 1: LIVE VIEW MONITOR & LENS CONTROL -->
+        <section class="panel-card camera-panel-liveview">
+            <div class="panel-header">
+                <div class="title-left">
+                    <span class="panel-icon">&#x1F441;</span>
+                    <h2>REAL-TIME LIVE VIEW & FOCUS DRIVE</h2>
+                </div>
+                <div class="header-actions">
+                    <button id="btn-zoom-1x" class="tactical-pill active">1X</button>
+                    <button id="btn-zoom-5x" class="tactical-pill">5X</button>
+                    <button id="btn-zoom-10x" class="tactical-pill">10X</button>
+                    <button id="btn-toggle-grid" class="tactical-pill active">GRID</button>
+                </div>
+            </div>
+
+            <div class="panel-body liveview-container">
+                <div class="liveview-viewport">
+                    <img id="liveview-stream" src="/api/camera/liveview" alt="Canon EOS 60D Live View Stream" crossorigin="anonymous">
+                    <div id="liveview-overlay-badge" class="liveview-badge">LIVE 16 FPS</div>
+                </div>
+
+                <!-- Focus & Direct Controls Toolbar -->
+                <div class="liveview-toolbar">
+                    <div class="focus-control-group">
+                        <span class="control-label">MANUAL FOCUS STEP:</span>
+                        <button id="btn-focus-far-large" class="btn-tactical btn-small" title="Focus Far (Coarse)">&#x25C4;&#x25C4; FAR</button>
+                        <button id="btn-focus-far-fine" class="btn-tactical btn-small" title="Focus Far (Fine)">&#x25C4; FINE</button>
+                        <span class="focus-val" id="focus-pos-display">500</span>
+                        <button id="btn-focus-near-fine" class="btn-tactical btn-small" title="Focus Near (Fine)">NEAR &#x25BA;</button>
+                        <button id="btn-focus-near-large" class="btn-tactical btn-small" title="Focus Near (Coarse)">NEAR &#x25BA;&#x25BA;</button>
+                    </div>
+
+                    <button id="btn-single-shutter" class="btn-tactical btn-high-accent btn-shutter">
+                        <span class="btn-icon">&#x1F4F8;</span> RELEASE SHUTTER (TAKE SHOT)
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL 2: EXPOSURE CONTROL & CAMERA SETTINGS -->
+        <section class="panel-card camera-panel-settings">
+            <div class="panel-header">
+                <div class="title-left">
+                    <span class="panel-icon">&#x2699;</span>
+                    <h2>EXPOSURE & CAMERA CONFIGURATION</h2>
+                </div>
+            </div>
+
+            <div class="panel-body settings-grid">
+                <!-- Shutter Speed -->
+                <div class="setting-item">
+                    <label for="sel-shutter-speed">SHUTTER SPEED</label>
+                    <select id="sel-shutter-speed" class="tactical-select"></select>
+                </div>
+
+                <!-- ISO Sensitivity -->
+                <div class="setting-item">
+                    <label for="sel-iso">ISO SENSITIVITY</label>
+                    <select id="sel-iso" class="tactical-select"></select>
+                </div>
+
+                <!-- Aperture -->
+                <div class="setting-item">
+                    <label for="sel-aperture">APERTURE (F-STOP)</label>
+                    <select id="sel-aperture" class="tactical-select"></select>
+                </div>
+
+                <!-- White Balance -->
+                <div class="setting-item">
+                    <label for="sel-white-balance">WHITE BALANCE</label>
+                    <select id="sel-white-balance" class="tactical-select"></select>
+                </div>
+
+                <!-- Image Format -->
+                <div class="setting-item">
+                    <label for="sel-image-format">IMAGE FORMAT</label>
+                    <select id="sel-image-format" class="tactical-select"></select>
+                </div>
+
+                <!-- Drive Mode -->
+                <div class="setting-item">
+                    <label for="sel-drive-mode">DRIVE MODE</label>
+                    <select id="sel-drive-mode" class="tactical-select"></select>
+                </div>
+
+                <!-- Focus Mode -->
+                <div class="setting-item">
+                    <label for="sel-focus-mode">AF / FOCUS MODE</label>
+                    <select id="sel-focus-mode" class="tactical-select"></select>
+                </div>
+
+                <div class="settings-action-row">
+                    <button id="btn-apply-settings" class="btn-tactical full-width">UPDATE CAMERA PARAMETERS</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL 3: AUTOMATED INTERVALOMETER -->
+        <section class="panel-card camera-panel-intervalometer">
+            <div class="panel-header">
+                <div class="title-left">
+                    <span class="panel-icon">&#x23F1;</span>
+                    <h2>AUTOMATED PRO INTERVALOMETER</h2>
+                </div>
+                <div id="interval-status-tag" class="status-tag idle">IDLE</div>
+            </div>
+
+            <div class="panel-body intervalometer-body">
+                <!-- Intervalometer Parameter Inputs -->
+                <div class="interval-inputs-grid">
+                    <div class="input-box">
+                        <label for="inp-delay">INITIAL DELAY (SEC)</label>
+                        <input type="number" id="inp-delay" class="tactical-input" value="2.0" min="0" step="0.5">
+                    </div>
+
+                    <div class="input-box">
+                        <label for="inp-exposure">SHUTTER EXPOSURE (SEC)</label>
+                        <input type="number" id="inp-exposure" class="tactical-input" value="5.0" min="0.1" step="0.5">
+                    </div>
+
+                    <div class="input-box">
+                        <label for="inp-interval">INTERVAL GAP (SEC)</label>
+                        <input type="number" id="inp-interval" class="tactical-input" value="3.0" min="1.0" step="0.5">
+                    </div>
+
+                    <div class="input-box">
+                        <label for="inp-frame-count">SHOT COUNT (0 = INF)</label>
+                        <input type="number" id="inp-frame-count" class="tactical-input" value="10" min="0" step="1">
+                    </div>
+                </div>
+
+                <!-- Sequence Progress Visualizer -->
+                <div class="sequence-telemetry-box">
+                    <div class="progress-bar-container">
+                        <div id="interval-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+                    </div>
+
+                    <div class="telemetry-stats-row">
+                        <div class="stat-col">
+                            <span class="stat-lbl">COMPLETED SHOTS</span>
+                            <span class="stat-val" id="stat-shots-display">0 / 10</span>
+                        </div>
+                        <div class="stat-col">
+                            <span class="stat-lbl">PHASE TIMER</span>
+                            <span class="stat-val" id="stat-phase-timer">0.0s</span>
+                        </div>
+                        <div class="stat-col">
+                            <span class="stat-lbl">TOTAL ELAPSED</span>
+                            <span class="stat-val" id="stat-total-elapsed">00:00:00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Intervalometer Controls -->
+                <div class="interval-actions-row">
+                    <button id="btn-start-interval" class="btn-tactical btn-high-accent flex-1">
+                        &#x25B6; START SEQUENCE
+                    </button>
+                    <button id="btn-pause-interval" class="btn-tactical flex-1" disabled>
+                        &#x23F8; PAUSE / RESUME
+                    </button>
+                    <button id="btn-stop-interval" class="btn-tactical btn-danger flex-1" disabled>
+                        &#x25A0; CANCEL / STOP
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL 4: CAPTURES HISTORY & IMAGE GALLERY -->
+        <section class="panel-card camera-panel-gallery span-full">
+            <div class="panel-header">
+                <div class="title-left">
+                    <span class="panel-icon">&#x1F5BC;</span>
+                    <h2>CAPTURED EXPOSURES GALLERY & FILE LOG</h2>
+                </div>
+                <span class="card-tag" id="gallery-count-badge">0 EXPOSURES</span>
+            </div>
+
+            <div class="panel-body gallery-body">
+                <div id="gallery-grid" class="gallery-grid-container">
+                    <div class="gallery-empty-state">No exposures captured yet. Take a single shot or start the intervalometer!</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="camera.js?v=20260905"></script>
+</body>
+</html>
