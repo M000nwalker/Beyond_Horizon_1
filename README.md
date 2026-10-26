@@ -13,6 +13,13 @@
 
 ---
 
+<div align="center">
+  <img src="Media/20260926_171130.jpg" alt="Beyond Horizon 1 Full Physical Prototype" width="750"/>
+  <p><em>Figure 1: Fully assembled Beyond Horizon - 1 (BH-1) computerized refractor telescope on custom Alt-Az fork mount and field tripod.</em></p>
+</div>
+
+---
+
 ## 📖 Executive Summary
 
 **Project Beyond Horizon - 1 (BH-1)** is an electro-mechanical, computerized smart GoTo astronomical telescope developed as an electro-mechanical system design capstone (**ME 366, Group B-3**) at the **Department of Mechanical Engineering, Bangladesh University of Engineering and Technology (BUET)**.
@@ -21,16 +28,25 @@ Commercial motorized GoTo telescopes with computerized celestial tracking and as
 
 ---
 
+## 📸 Prototype & Simulation Gallery
+
+| Field Tripod Setup | 120:1 Worm Drive & Focuser | COMSOL Ray Tracing Simulation |
+| :---: | :---: | :---: |
+| <img src="Media/IMG-20260926-WA0003.jpg" alt="Field Setup" width="260"/> | <img src="Media/IMG-20260926-WA0010.jpg" alt="Drive Detail" width="260"/> | <img src="FEA Simulation/Results/Ray Tracing.png" alt="Ray Tracing" width="260"/> |
+| *Full optical tube and fork assembly* | *Precision drive mechanics & eyepiece clamp* | *Polychromatic beam convergence analysis* |
+
+---
+
 ## 🌟 Key Highlights & Features
 
 - **🔭 High-Resolution D80 F900 Achromatic Optics**:
   - D80 F900 Achromatic doublet objective lens ($80\text{ mm}$ clear aperture, $900\text{ mm}$ focal length, $f/11.25$ focal ratio).
-  - Capable of up to **72x maximum optical magnification** for crisp planetary and lunar observation.
+  - Capable of up to **72x maximum optical magnification** for resolving lunar craters and planetary disks (Jupiter's Galilean moons, Saturn's rings).
   - Paraxial focal convergence verified at $z = 899.484\text{ mm}$ with $r_{\text{rms}} = 68.1\,\mu\text{m}$ RMS spot radius across the visible polychromatic spectrum ($400\text{--}700\text{ nm}$).
   - Thin-film Anti-Reflective (AR) coating verified via **COMSOL Multiphysics** ray tracing to eliminate internal ghost reflections.
 - **⚙️ Dual-Axis Motorized Alt-Azimuth Mount**:
   - 2 Degrees of Freedom (Altitude: $0^\circ \text{ to } 90^\circ$, Azimuth: $0^\circ \text{ to } 360^\circ$).
-  - High-torque NEMA 17 stepper motors paired with precision **120:1 Worm Gearboxes** for non-backdrivable, zero-sag holding and micro-smooth slewing.
+  - High-torque NEMA 17 stepper motors paired with custom **120:1 Worm Gearboxes** for non-backdrivable, zero-sag holding and micro-smooth slewing.
   - Sub-arcminute theoretical resolution: **1,066.67 steps/degree** ($384,000\text{ steps/rev}$ at $1/16$ microstepping $\implies 3.375\text{ arcsec/step}$).
 - **📡 Wireless ESP32 Motion Controller**:
   - Standalone Wi-Fi HTTP REST API (`/target`, `/calibrate`, `/status`).
@@ -61,8 +77,8 @@ graph TD
     
     subgraph Tier 1: High-Level Coordinate Math & Planning Hub
         Tier1[FastAPI Control Hub & Stellarium API\napp.py]
-        Tier1 --> Tracking[1Hz Real-Time Sidereal Tracking]
-        Tier1 --> CameraHub[Canon EOS 60D Module\ncamera_backend.py]
+        Tier1 --> Tracking[1Hz Real-Time Sidereal Tracking Engine]
+        Tier1 --> CameraHub[Canon EOS 60D Camera Module\ncamera_backend.py]
         CameraHub <-->|USB PTP| DSLR[(Canon EOS DSLR)]
     end
 
@@ -80,6 +96,22 @@ graph TD
         DSLR -.->|T-Ring 1.25'' Adapter| OTA
     end
 ```
+
+---
+
+## 🛠️ Engineering Challenges & Iterative Redesigns
+
+During prototype development and testing, several real-world engineering hurdles were solved through rapid mechatronic iteration:
+
+1. **Metal Machining vs. 3D Printing**:
+   - *Problem*: Initial attempts to machine metal 120:1 worm gear sets failed due to local machine-shop tooling constraints and pitch tolerance limits.
+   - *Solution*: Re-engineered parametric models in SolidWorks specifically optimized for FDM additive manufacturing with tight tooth clearances.
+2. **Worm Screw Torsional Shearing**:
+   - *Problem*: The initial 3D-printed worm screw experienced shear failure along layer lines under motor holding torque and dynamic stopping loads.
+   - *Solution*: Re-oriented print layer axes to eliminate shear planes perpendicular to torque, increased functional infill to 100%, and integrated sleeve bearings to absorb axial thrust loads.
+3. **Firmware Decoupling**:
+   - *Problem*: Initial designs relied on host-side raw motor step commands, causing network latency jitter in movement smoothness.
+   - *Solution*: Upgraded communication to pure degree telemetry (`target_alt`, `target_az`), delegating trapezoidal acceleration and deterministic pulse synthesis to ESP32 Core 1.
 
 ---
 
@@ -135,6 +167,7 @@ Beyond_Horizon_1/
 │   └── Beyond Horizon -1 User Interface/
 │       ├── app.py                      # Production FastAPI server, GoTo engine & sidereal tracker
 │       ├── camera_backend.py           # Canon EOS 60D PTP USB controller & fallback simulator
+│       ├── Run_Telescope.bat           # Windows one-click startup batch script
 │       ├── captures/                   # Directory for stored astrophotography exposures
 │       ├── esp_final_logic/            # Production dual-axis non-blocking ESP32 firmware
 │       │   └── stepper_final_logic/
@@ -146,10 +179,6 @@ Beyond_Horizon_1/
 │           ├── camera.html             # Dedicated astrophotography & camera suite view
 │           ├── style.css               # Night-vision charcoal/crimson stylesheet
 │           └── camera.css              # Camera live stream & intervalometer styles
-│
-├── Beyond Horizon -1 User Interface/   # Root shortcut & execution workspace
-│   ├── Run_Telescope.bat               # Windows one-click startup batch script
-│   └── (server files, firmware & static assets mirrored for easy local launching)
 │
 └── README.md                           # Master project documentation & engineering reference
 ```
@@ -218,7 +247,7 @@ The telescope is controlled by an **ESP32 Dev Module** running custom non-blocki
 ### 2. Microcontroller Firmware Setup
 
 1. Open Arduino IDE.
-2. Open [`Web App/Beyond Horizon -1 User Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino`](file:///d:/BH-1%20Git/Beyond_Horizon_1/Web%20App/Beyond%20Horizon%20-1%20User%20Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino) *(or from [`Beyond Horizon -1 User Interface/esp_final_logic/...`](file:///d:/BH-1%20Git/Beyond_Horizon_1/Beyond%20Horizon%20-1%20User%20Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino))*.
+2. Open [`Web App/Beyond Horizon -1 User Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino`](file:///d:/BH-1%20Git/Beyond_Horizon_1/Web%20App/Beyond%20Horizon%20-1%20User%20Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino).
 3. Set your Wi-Fi SSID and Password:
    ```cpp
    const char* ssid     = "YOUR_WIFI_SSID";
@@ -235,7 +264,6 @@ The telescope is controlled by an **ESP32 Dev Module** running custom non-blocki
 1. Navigate to the web application directory:
    ```bash
    cd "d:/BH-1 Git/Beyond_Horizon_1/Web App/Beyond Horizon -1 User Interface"
-   # Or: cd "d:/BH-1 Git/Beyond_Horizon_1/Beyond Horizon -1 User Interface"
    ```
 
 2. Install Python dependencies:
