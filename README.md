@@ -22,7 +22,7 @@ Commercial motorized GoTo telescopes with computerized celestial tracking and as
 ## 🌟 Key Highlights & Features
 
 - **🔭 High-Resolution Achromatic Optics**:
-  - $f/11.25$ Achromatic doublet objective lens ($\approx 900\text{ mm}$ focal length).
+  - $f/11.25$ Achromatic doublet objective lens ($\approx 900\text{ mm}$ focal length, $80\text{ mm}$ clear aperture).
   - Paraxial focal convergence verified at $z = 899.484\text{ mm}$ with $r_{\text{rms}} = 68.1\,\mu\text{m}$ RMS spot radius across the visible polychromatic spectrum ($400\text{--}700\text{ nm}$).
   - Anti-Reflective (AR) thin-film coating verification via **COMSOL Multiphysics** ray tracing.
 - **⚙️ Dual-Axis Motorized Alt-Azimuth Mount**:
@@ -82,50 +82,62 @@ graph TD
 
 ```text
 Beyond_Horizon_1/
-├── Beyond Horizon -1 User Interface/   # Primary production FastAPI web dashboard & camera backend
-│   ├── app.py                          # Central hub server, sky math, GoTo & sidereal tracking loop
-│   ├── camera_backend.py               # Canon EOS 60D PTP USB controller & realistic fallback simulator
-│   ├── Run_Telescope.bat               # Windows quick-launch script
-│   ├── captures/                       # Directory for saved astrophotography frames
-│   ├── esp_final_logic/                # Production non-blocking ESP32 firmware
-│   │   └── stepper_final_logic/
-│   │       └── stepper_final_logic.ino
-│   └── static/                         # Frontend assets (tactical night-vision UI, canvas sky map)
-│       ├── app.js
-│       ├── camera.js
-│       ├── index.html
-│       ├── camera.html
-│       ├── style.css
-│       └── camera.css
-├── CADS/                               # SolidWorks 3D CAD parts and subassemblies
-│   ├── OTA With Clamp.SLDASM           # Optical Tube Assembly and mounting clamps
-│   ├── Worm Assembly.SLDASM            # NEMA 17 120:1 worm drive transmission assembly
-│   ├── azimuthal axis.SLDASM           # Rotational base and thrust bearing assembly
-│   ├── Lens Cell.SLDPRT / Lens cap     # 3D printable objective lens cell
-│   ├── Draw tube.SLDPRT                # 1.25" rack-and-pinion / friction draw tube
-│   ├── Printables/ & Printables-1/     # STL and 3D printing export files
-│   └── Worm Gear.gif                   # Worm reduction kinematic preview
-├── FEA Simulation/                     # Computational optical simulation & ray tracing
+├── CADS/                               # Consolidated SolidWorks 3D CAD models, assemblies & printables
+│   ├── final assembly.SLDASM           # Master telescope & mount optomechanical assembly
+│   ├── Assem lower platform.SLDASM     # Azimuth turntable & thrust bearing assembly
+│   ├── Assembly for print.SLDASM       # Print-ready subassembly for rapid prototyping
+│   ├── Lens cap and cell.SLDASM        # Objective lens cell & protective dust cap
+│   ├── Lower Holder finalized.STL      # 3D printable lower structural clamp
+│   ├── Draw tube.SLDPRT                # 1.25" optical draw tube for eyepiece/camera
+│   ├── Focuser Static.SLDPRT           # Static focuser barrel housing
+│   ├── Lens Cell.SLDPRT & Lens cap     # 80mm doublet lens cell & threaded cap
+│   ├── Main tube.SLDPRT                # Primary optical tube assembly (OTA) body
+│   ├── Upper Holder.SLDPRT             # Upper mounting clamp
+│   ├── Lower Holder.SLDPRT             # Lower mounting clamp
+│   ├── Lower Part with the shaft.SLDPRT# Main rotational shaft connector
+│   ├── wormscrew.SLDPRT                # Precision worm screw (NEMA 17 driven)
+│   ├── wormwheel.SLDPRT                # 120-tooth worm wheel (120:1 gear reduction)
+│   ├── bases.SLDPRT & standing part    # Rigid base plate & vertical fork uprights
+│   └── leg.SLDPRT, upper/lower shafts  # Tripod mounting legs and stainless steel shafts
+│
+├── FEA Simulation/                     # Computational optical ray tracing & finite element analysis
 │   ├── FEA Model (Objective Lens).mph  # COMSOL Multiphysics polychromatic ray tracing model
-│   └── Results/                        # Generated spot diagrams, meshing, and focal plane plots
-├── Final Assembly/                     # Final consolidated SolidWorks assembly files & printable STLs
-│   ├── final assembly.SLDASM
-│   ├── Assembly for print.SLDASM
-│   └── Lower Holder finalized.STL
-├── Lets make a new focusing system/    # Upgraded 1.25" DSLR T-Ring adapter & draw tube models
-│   ├── Draw tube.STL
-│   └── T-Ring_Adapter_1.25_.stl
-├── Microcontroller Code/               # Development and test firmware sketches
-│   ├── main_source/                    # FreeRTOS dual-queue prototyping sketch
-│   ├── Stepper/                        # Standalone A4988/DRV8825 stepper driver test code
-│   └── Test/                           # Wi-Fi connectivity and diagnostic scripts
-├── PDF Documents/                      # Academic reports and engineering documentation
-│   ├── Project Proposal.pdf            # ME 366 project proposal white paper
-│   └── FEA Simulation Report.pdf       # Comprehensive COMSOL ray tracing & spot analysis report
-├── Bill Of Material-BH1/               # Financial expenditure statement & itemized BOM
-│   ├── bill_of_materials_BH1.pdf
-│   └── bill_of_materials_BH1.tex
-└── Updated UI/                         # Staging & mirror UI backup directory
+│   └── Results/                        # Simulation plots, ray paths, spot diagrams & meshing
+│       ├── Focal Plane Dataset.jpg
+│       ├── Isometric View Of the Objective Lens.png
+│       ├── Meshing.png
+│       ├── Ray Tracing.png
+│       ├── Ray Tracing Highly Zoomed in.png
+│       ├── Ray Tracing Without Anti Reflective Coating.png
+│       ├── Spot Diagram.png
+│       └── Top View Of the Objective Lens.png
+│
+├── PDF Documents/                      # Academic papers, technical reports & financial statements
+│   ├── Project Proposal.pdf            # BUET ME 366 project proposal white paper
+│   ├── FEA Simulation Report.pdf       # 6-page comprehensive COMSOL ray tracing & spot analysis report
+│   └── bill_of_materials_BH1.pdf       # Verified Bill of Materials (BOM) & expenditure statement
+│
+├── Web App/                            # Centralized Web Application & Mechatronics package
+│   └── Beyond Horizon -1 User Interface/
+│       ├── app.py                      # Production FastAPI server, GoTo engine & sidereal tracker
+│       ├── camera_backend.py           # Canon EOS 60D PTP USB controller & fallback simulator
+│       ├── captures/                   # Directory for stored astrophotography exposures
+│       ├── esp_final_logic/            # Production dual-axis non-blocking ESP32 firmware
+│       │   └── stepper_final_logic/
+│       │       └── stepper_final_logic.ino
+│       └── static/                     # Night-vision dashboard (Orbitron/Share Tech Mono)
+│           ├── app.js                  # Frontend telemetry, canvas sky map & control scripts
+│           ├── camera.js               # DSLR live view, intervalometer & exposure controls
+│           ├── index.html              # Main telescope tactical control interface
+│           ├── camera.html             # Dedicated astrophotography & camera suite view
+│           ├── style.css               # Night-vision charcoal/crimson stylesheet
+│           └── camera.css              # Camera live stream & intervalometer styles
+│
+├── Beyond Horizon -1 User Interface/   # Root shortcut & execution workspace
+│   ├── Run_Telescope.bat               # Windows one-click startup batch script
+│   └── (server files, firmware & static assets mirrored for easy local launching)
+│
+└── README.md                           # Master project documentation & engineering reference
 ```
 
 ---
@@ -136,13 +148,13 @@ Beyond_Horizon_1/
 
 | Parameter | Value | Details / Remarks |
 | :--- | :--- | :--- |
-| **Optical Design** | Achromatic Doublet Refractor | Crown & Flint glass combination |
-| **Clear Aperture ($D$)** | $80\text{ mm}$ | Optimized light gathering with minimal weight |
+| **Optical Design** | Achromatic Doublet Refractor | Crown & Flint optical glass pair |
+| **Clear Aperture ($D$)** | $80\text{ mm}$ | Optimized light gathering with minimal chassis weight |
 | **Focal Length ($f$)** | $\approx 900\text{ mm}$ | Paraxial convergence verified at $z = 899.484\text{ mm}$ |
-| **Focal Ratio** | $f/11.25$ | High focal ratio eliminates spherical & color aberration |
-| **Spectral Range** | $400\text{ nm} - 700\text{ nm}$ | Polychromatic visible band ($\Delta \lambda = 50\text{ nm}$) |
-| **RMS Spot Radius ($r_{\text{rms}}$)** | $68.1\,\mu\text{m}$ | Point-source diffraction circle well within Airy limit |
-| **Anti-Reflective Coating** | Thin-Film AR | Eliminates internal ghost reflections & flaring |
+| **Focal Ratio** | $f/11.25$ | High focal ratio eliminates spherical & chromatic aberrations |
+| **Spectral Range** | $400\text{ nm} - 700\text{ nm}$ | Polychromatic visible spectrum ($\Delta \lambda = 50\text{ nm}$) |
+| **RMS Spot Radius ($r_{\text{rms}}$)** | $68.1\,\mu\text{m}$ | Diffraction circle well within Airy limit for crisp point sources |
+| **Anti-Reflective Coating** | Thin-Film AR | Eliminates internal ghost reflections & flaring (verified in FEA) |
 
 ### 2. Electromechanical Kinematics
 
@@ -191,7 +203,7 @@ The telescope is controlled by an **ESP32 Dev Module** running custom non-blocki
 ### 2. Microcontroller Firmware Setup
 
 1. Open Arduino IDE.
-2. Open [`Beyond Horizon -1 User Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino`](file:///d:/BH-1%20Git/Beyond_Horizon_1/Beyond%20Horizon%20-1%20User%20Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino).
+2. Open [`Web App/Beyond Horizon -1 User Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino`](file:///d:/BH-1%20Git/Beyond_Horizon_1/Web%20App/Beyond%20Horizon%20-1%20User%20Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino) *(or from [`Beyond Horizon -1 User Interface/esp_final_logic/...`](file:///d:/BH-1%20Git/Beyond_Horizon_1/Beyond%20Horizon%20-1%20User%20Interface/esp_final_logic/stepper_final_logic/stepper_final_logic.ino))*.
 3. Set your Wi-Fi SSID and Password:
    ```cpp
    const char* ssid     = "YOUR_WIFI_SSID";
@@ -205,9 +217,10 @@ The telescope is controlled by an **ESP32 Dev Module** running custom non-blocki
 
 ### 3. Host Web Interface Setup
 
-1. Clone or open the repository:
+1. Navigate to the web application directory:
    ```bash
-   cd "d:/BH-1 Git/Beyond_Horizon_1/Beyond Horizon -1 User Interface"
+   cd "d:/BH-1 Git/Beyond_Horizon_1/Web App/Beyond Horizon -1 User Interface"
+   # Or: cd "d:/BH-1 Git/Beyond_Horizon_1/Beyond Horizon -1 User Interface"
    ```
 
 2. Install Python dependencies:
@@ -215,7 +228,7 @@ The telescope is controlled by an **ESP32 Dev Module** running custom non-blocki
    pip install fastapi uvicorn requests pyserial opencv-python pydantic numpy
    ```
 
-3. Update the ESP32 IP address in [`app.py`](file:///d:/BH-1%20Git/Beyond_Horizon_1/Beyond%20Horizon%20-1%20User%20Interface/app.py#L48):
+3. Update the ESP32 IP address in `app.py`:
    ```python
    # Line 48 in app.py:
    ESP_IP = "YOUR_ESP32_IP_ADDRESS"
@@ -263,7 +276,7 @@ Before executing accurate celestial GoTo commands, synchronize the telescope coo
 
 ## 💰 Bill of Materials (BOM) & Budget
 
-The table below summarizes the verified project expenditure from [`bill_of_materials_BH1.tex`](file:///d:/BH-1%20Git/Beyond_Horizon_1/Bill%20Of%20Material-BH1/bill_of_materials_BH1.tex):
+The table below summarizes the verified project expenditure from [PDF Documents/bill_of_materials_BH1.pdf](file:///d:/BH-1%20Git/Beyond_Horizon_1/PDF%20Documents/bill_of_materials_BH1.pdf):
 
 | SL | Category & Component Description | Source / Vendor | Cost (BDT) |
 | :-: | :--- | :--- | -: |
