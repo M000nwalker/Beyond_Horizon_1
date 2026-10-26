@@ -1,5 +1,7 @@
-# 🌌 Beyond Horizon - 1 (BH-1)
-### *A Low-Cost, Smart Motorized Alt-Azimuth GoTo Astronomical Refractor Telescope*
+# 🔭 BEYOND HORIZON — 1 (BH-1)
+### *An Automated High-Magnification Alt-Azimuth Computerized Telescope Mount*
+
+**Designed · Fabricated · Automated · Photographed — from the ground up**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](#)
@@ -13,26 +15,27 @@
 
 ## 📖 Executive Summary
 
-**Project Beyond Horizon - 1 (BH-1)** is an electromechanical, smart GoTo astronomical telescope developed as an electro-mechanical system design initiative (**ME 366**) at the **Department of Mechanical Engineering, Bangladesh University of Engineering and Technology (BUET)**.
+**Project Beyond Horizon - 1 (BH-1)** is an electro-mechanical, computerized smart GoTo astronomical telescope developed as an electro-mechanical system design capstone (**ME 366, Group B-3**) at the **Department of Mechanical Engineering, Bangladesh University of Engineering and Technology (BUET)**.
 
-Commercial motorized GoTo telescopes with computerized celestial tracking and astrophotography integration are prohibitively expensive and rely entirely on imports in Bangladesh. **BH-1** bridges this gap by democratizing astronomy: integrating precision optomechanics, 3D-printed polymer and PVC fabrication, high-torque dual-axis worm gear drives, an ESP32 wireless motion controller, a FastAPI night-vision tactical dashboard, and dedicated Canon EOS DSLR astrophotography integration—all fabricated within an accessible budget of **~26,600 BDT (~$220 USD)**.
+Commercial motorized GoTo telescopes with computerized celestial tracking and astrophotography integration are prohibitively expensive and rely entirely on imports in Bangladesh. **BH-1** bridges this gap by democratizing astronomy: integrating precision optomechanics, 3D-printed polymers and rigid PVC fabrication, high-torque dual-axis worm gear drives, an ESP32 wireless motion controller, a FastAPI night-vision tactical dashboard, and dedicated Canon EOS DSLR astrophotography integration—all fabricated within an accessible budget of **~26,600 BDT (~$220 USD)**.
 
 ---
 
 ## 🌟 Key Highlights & Features
 
-- **🔭 High-Resolution Achromatic Optics**:
-  - $f/11.25$ Achromatic doublet objective lens ($\approx 900\text{ mm}$ focal length, $80\text{ mm}$ clear aperture).
+- **🔭 High-Resolution D80 F900 Achromatic Optics**:
+  - D80 F900 Achromatic doublet objective lens ($80\text{ mm}$ clear aperture, $900\text{ mm}$ focal length, $f/11.25$ focal ratio).
+  - Capable of up to **72x maximum optical magnification** for crisp planetary and lunar observation.
   - Paraxial focal convergence verified at $z = 899.484\text{ mm}$ with $r_{\text{rms}} = 68.1\,\mu\text{m}$ RMS spot radius across the visible polychromatic spectrum ($400\text{--}700\text{ nm}$).
-  - Anti-Reflective (AR) thin-film coating verification via **COMSOL Multiphysics** ray tracing.
+  - Thin-film Anti-Reflective (AR) coating verified via **COMSOL Multiphysics** ray tracing to eliminate internal ghost reflections.
 - **⚙️ Dual-Axis Motorized Alt-Azimuth Mount**:
   - 2 Degrees of Freedom (Altitude: $0^\circ \text{ to } 90^\circ$, Azimuth: $0^\circ \text{ to } 360^\circ$).
-  - High-torque NEMA 17 stepper motors paired with precision **120:1 Worm Gearboxes** for non-backdrivable, micro-smooth slewing.
-  - Sub-arcminute theoretical resolution: **1,066.67 steps/degree** ($384,000\text{ steps/rev}$ at $1/16$ microstepping).
+  - High-torque NEMA 17 stepper motors paired with precision **120:1 Worm Gearboxes** for non-backdrivable, zero-sag holding and micro-smooth slewing.
+  - Sub-arcminute theoretical resolution: **1,066.67 steps/degree** ($384,000\text{ steps/rev}$ at $1/16$ microstepping $\implies 3.375\text{ arcsec/step}$).
 - **📡 Wireless ESP32 Motion Controller**:
   - Standalone Wi-Fi HTTP REST API (`/target`, `/calibrate`, `/status`).
   - Interleaved non-blocking step generation on ESP32 Core 1 with FreeRTOS queues.
-  - Degree-based kinematics calculation local to firmware.
+  - Decoupled, degree-based kinematics calculation local to firmware.
 - **🛰️ Real-Time 1 Hz Sidereal Tracking Engine**:
   - Continuously counteracts Earth’s diurnal rotation ($\approx 15.041^\circ/\text{hr} \approx 0.004167^\circ/\text{sec}$) to maintain precise optical centering on celestial targets.
 - **🖥️ Tactical Night-Vision Web Dashboard**:
@@ -48,30 +51,32 @@ Commercial motorized GoTo telescopes with computerized celestial tracking and as
 
 ---
 
-## 🏛️ System Architecture
+## 🏛️ Hierarchical Three-Tier System Architecture
+
+As documented in the official **ME-366 Final Report (Group B-3)**, the system implements a robust three-tier control architecture:
 
 ```mermaid
 graph TD
-    User([User / Astrophotographer]) -->|Browser / Mobile UI| WebUI[Tactical Web Dashboard\nHTML5 Canvas / CSS / JS]
+    User([User / Astrophotographer]) -->|Mobile Browser / Field Laptop| Tier1
     
-    subgraph Host Workstation / Laptop
-        WebUI <-->|HTTP / REST & WebSocket| Backend[FastAPI Central Hub\napp.py]
-        Backend --> TrackingEngine[1Hz Sidereal Tracking Engine]
-        Backend --> CameraService[Canon EOS 60D Controller\ncamera_backend.py]
-        CameraService <-->|USB / gphoto2 / OpenCV| DSLR[(Canon DSLR / Astrocyl)]
+    subgraph Tier 1: High-Level Coordinate Math & Planning Hub
+        Tier1[FastAPI Control Hub & Stellarium API\napp.py]
+        Tier1 --> Tracking[1Hz Real-Time Sidereal Tracking]
+        Tier1 --> CameraHub[Canon EOS 60D Module\ncamera_backend.py]
+        CameraHub <-->|USB PTP| DSLR[(Canon EOS DSLR)]
     end
 
-    subgraph ESP32 Wireless Mechatronics Hub
-        Backend <-->|Wi-Fi HTTP REST| ESP[ESP32 Microcontroller\nFreeRTOS + WebServer]
-        ESP -->|DIR & STEP Pulses| Drivers[A4988 / DRV8825 Stepper Drivers]
-        Drivers --> MotorAlt[NEMA 17 - Altitude Axis]
-        Drivers --> MotorAz[NEMA 17 - Azimuth Axis]
+    subgraph Tier 2: Real-Time Mechatronic Controller
+        Tier1 <-->|Wi-Fi HTTP REST /target| ESP[ESP32 Microcontroller\nCore 1 Non-Blocking Step Generator]
     end
 
-    subgraph Mechanical & Optomechanical Assembly
-        MotorAlt -->|120:1 Worm Gear| MechAlt[Altitude Pivot Mount\n0° to 90°]
-        MotorAz -->|120:1 Worm Gear| MechAz[Azimuth Turntable\n0° to 360°]
-        MechAlt --> OTA[Optical Tube Assembly\n900mm Achromatic Doublet + Focuser]
+    subgraph Tier 3: Electromechanical Physical Actuation
+        ESP -->|STEP & DIR Pulses| Drivers[A4988 / DRV8825 Motor Drivers\n1:16 Microstepping Current Conditioning]
+        Drivers --> StepperAlt[NEMA 17 Stepper - Altitude]
+        Drivers --> StepperAz[NEMA 17 Stepper - Azimuth]
+        StepperAlt -->|120:1 Worm Drive| GearAlt[Altitude Fork Pivot\n0° to 90°]
+        StepperAz -->|120:1 Worm Drive| GearAz[Azimuth Turntable\n0° to 360°]
+        GearAlt --> OTA[D80 F900 Optical Tube Assembly\n72x Magnification Achromatic Refractor]
         DSLR -.->|T-Ring 1.25'' Adapter| OTA
     end
 ```
@@ -112,8 +117,17 @@ Beyond_Horizon_1/
 │       ├── Spot Diagram.png
 │       └── Top View Of the Objective Lens.png
 │
-├── PDF Documents/                      # Academic papers, technical reports & financial statements
-│   ├── Project Proposal.pdf            # BUET ME 366 project proposal white paper
+├── Media/                              # Prototype demonstration media & presentation assets
+│   ├── 20260926_171130.jpg             # High-resolution physical prototype photograph
+│   ├── IMG-20260926-WA0003.jpg         # Telescope field assembly and tripod setup
+│   ├── IMG-20260926-WA0010.jpg         # Eyepiece, focuser, and motor drive detail
+│   ├── IMG_3822.MOV                    # Live actuation & GoTo motorized slewing demo video
+│   └── B03_Poster_Beyond Horizon 1.pdf # Full presentation poster for ME-366 evaluation
+│
+├── PDF Documents/                      # Official academic reports, white papers & expenditure
+│   ├── B03_Report_Beyond Horizon 1.pdf # ME-366 Final Project Comprehensive Report (Group B-3)
+│   ├── B03_Poster_Beyond Horizon 1.pdf # High-resolution presentation poster
+│   ├── Project Proposal.pdf            # Initial ME-366 project proposal white paper
 │   ├── FEA Simulation Report.pdf       # 6-page comprehensive COMSOL ray tracing & spot analysis report
 │   └── bill_of_materials_BH1.pdf       # Verified Bill of Materials (BOM) & expenditure statement
 │
@@ -148,10 +162,11 @@ Beyond_Horizon_1/
 
 | Parameter | Value | Details / Remarks |
 | :--- | :--- | :--- |
-| **Optical Design** | Achromatic Doublet Refractor | Crown & Flint optical glass pair |
+| **Optical Design** | Achromatic Doublet Refractor (D80 F900) | Crown & Flint optical glass pair |
 | **Clear Aperture ($D$)** | $80\text{ mm}$ | Optimized light gathering with minimal chassis weight |
 | **Focal Length ($f$)** | $\approx 900\text{ mm}$ | Paraxial convergence verified at $z = 899.484\text{ mm}$ |
-| **Focal Ratio** | $f/11.25$ | High focal ratio eliminates spherical & chromatic aberrations |
+| **Focal Ratio** | $f/11.25$ | High focal ratio severely reduces chromatic & spherical aberrations |
+| **Maximum Magnification** | **72x** | Allows resolving lunar craters and planetary disks (Jupiter, Saturn) |
 | **Spectral Range** | $400\text{ nm} - 700\text{ nm}$ | Polychromatic visible spectrum ($\Delta \lambda = 50\text{ nm}$) |
 | **RMS Spot Radius ($r_{\text{rms}}$)** | $68.1\,\mu\text{m}$ | Diffraction circle well within Airy limit for crisp point sources |
 | **Anti-Reflective Coating** | Thin-Film AR | Eliminates internal ghost reflections & flaring (verified in FEA) |
@@ -295,12 +310,23 @@ The table below summarizes the verified project expenditure from [PDF Documents/
 
 ---
 
+## 🔮 Future Enhancements Roadmap
+
+As outlined in the final technical report:
+1. **Dedicated Physical Camera Mount**: Engineering a rigid, vibration-damped camera bracket to securely mount imaging sensors at prime focus.
+2. **Ergonomic Vertical Focuser**: Developing a 90° star diagonal / right-angle focusing assembly for comfortable viewing angles when the optical tube points near the zenith.
+3. **Cloud & Remote Server Migration**: Offloading ephemeris calculations and database lookups to an external microservice, enabling direct lightweight control via smartphone browser without needing a tethered host laptop.
+4. **Software Backlash Compensation & Encoders**: Implementing direction-reversal deadband compensation in firmware, with optional AS5600 12-bit magnetic angle encoders for closed-loop position verification.
+
+---
+
 ## 👥 Engineering Team & Credits
 
 Developed as part of the **ME 366: Electro-Mechanical System Design** curriculum at **BUET**:
 
 - **Institution**: Department of Mechanical Engineering, **Bangladesh University of Engineering and Technology (BUET)**
 - **Academic Course**: ME 366 (Electro-Mechanical System Design)
+- **Project Group**: Group B-3
 - **Supervised Under**: Faculty of Mechanical Engineering, BUET
 - **Student Researchers & Designers**:
   - `2210070`

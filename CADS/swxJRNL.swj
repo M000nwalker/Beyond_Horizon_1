@@ -1,0 +1,23 @@
+' ******************************************************************************
+' swxJRNL.swj - journal recorded on 10/26/26 by Mynur
+' *****************************************************************************
+Dim swApp As Object
+
+Dim Part As Object
+Dim boolstatus As Boolean
+Dim longstatus As Long, longwarnings As Long
+
+Sub main()
+
+Set swApp = Application.SldWorks
+
+' MSGBOX
+' The file ~$Lens Cell.SLDPRT is corrupt and cannot be opened or repaired.
+' Please retrieve a back-up copy of the file. If corruptions continue, please contact your local SOLIDWORKS support representative for help in troubleshooting this problem.
+
+' MSGBOX
+' The file ~$Lens Cell.SLDPRT is corrupt and cannot be opened or repaired.
+' Please retrieve a back-up copy of the file. If corruptions continue, please contact your local SOLIDWORKS support representative for help in troubleshooting this problem.
+
+swApp.ExitApp
+End Sub
