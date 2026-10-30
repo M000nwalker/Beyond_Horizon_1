@@ -360,7 +360,6 @@ Developed as part of the **ME 366: Electro-Mechanical System Design** curriculum
   - `2210070`
   - `2210071`
   - `2210072`
-  - `2210074`
 - **GitHub Repository**: [M000nwalker/Beyond_Horizon_1](https://github.com/M000nwalker/Beyond_Horizon_1)
 
 ---
